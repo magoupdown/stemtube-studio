@@ -3,7 +3,7 @@
 [![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/magoupdown/stemtube-studio/blob/main/StemTube.ipynb)
 ![versão](https://img.shields.io/badge/vers%C3%A3o-1.0.0-7c5cff)
 ![licença](https://img.shields.io/badge/licen%C3%A7a-MIT-22d3ee)
-![testes](https://img.shields.io/badge/testes%20locais-75%20ok-34d399)
+![testes](https://img.shields.io/badge/testes%20locais-87%20ok-34d399)
 
 **YouTube, áudio e inteligência artificial em um só aplicativo, dentro do Google Colab.**
 Baixe vídeos e playlists em MP4 ou áudio, recorte um trecho, separe voz e instrumentos com IA, ouça no mixer e renderize sua própria mixagem — tudo com uma interface de página web, prévia antes de começar e fila com progresso em tempo real.
@@ -26,6 +26,10 @@ Baixe vídeos e playlists em MP4 ou áudio, recorte um trecho, separe voz e inst
 | 🔐 | **Conta e cookies** | Login Google obrigatório. Cookies da conta para vídeos privados, +18 ou só para membros, salvos no Drive e migrados automaticamente das versões anteriores. |
 | 💾 | **Destino** | Botão "Baixar" por arquivo, ZIP de tudo e cópia opcional em `Meu Drive/StemTube/{Downloads,Faixas,Mixagens}` com subpasta personalizada. |
 | 📱 | **Interface** | Assistente em 5 etapas (Fonte → Prévia → Opções → Processar → Resultado), tema claro/escuro, responsivo, mensagens de erro traduzidas com o que fazer. |
+
+## Prévias dos resultados
+
+Downloads, recortes, faixas e mixagens têm prévias individuais com reprodução, pausa, busca, volume e velocidade. Abra **Ouvir áudio** ou **Ver vídeo** no resultado. A prévia de vídeo mantém a duração completa em até 480p; a prévia de áudio usa MP3. O arquivo de download mantém o formato e a qualidade escolhidos. Quando o proxy de mídia falha, o player carrega por blocos pela ponte do Colab. A geração de prévias acrescenta tempo ao processamento.
 
 ## 🚀 Como usar
 
@@ -69,7 +73,7 @@ stemtube-studio/
     ├── intro.md · outro.md   ← células de texto do notebook
     ├── build_notebook.py     ← gera o .ipynb a partir dos arquivos acima
     ├── dev_server.py         ← servidor local para testar a interface fora do Colab
-    └── tests/test_backend.py ← 75 verificações do backend em modo simulado
+    └── tests/test_backend.py ← 87 verificações do backend em modo simulado
 ```
 
 ### Desenvolvimento

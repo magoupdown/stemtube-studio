@@ -1,3 +1,12 @@
+## Player de prévias para todos os resultados
+
+- Novo player com reprodução, pausa, busca, volume e velocidade para áudio e vídeo.
+- Prévias individuais para downloads, recortes, faixas separadas e mixagens.
+- Prévia de vídeo completa H.264/AAC até 480p, sem alterar o arquivo de download.
+- Recuperação de erros do proxy com transferência em blocos de 512 KiB e nova tentativa.
+- Carregamento sob demanda e liberação da mídia ao sair do resultado.
+- 87 verificações do backend aprovadas, incluindo geração real de prévia de vídeo e integridade dos blocos. Outros 15 testes temporários da lógica do player passaram com DOM simulado. Validação visual e execução no Colab permanecem pendentes: o navegador deste ambiente bloqueou a página local e o teste incorporado por política de URL.
+
 ## Revisão técnica de 2026-09-08
 
 - Erros de conversão deixam de ser tratados como downloads concluídos.

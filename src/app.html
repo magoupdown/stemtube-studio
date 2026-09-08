@@ -355,6 +355,31 @@
   #stemtube .loading .lring { width:46px; height:46px; margin:0 auto 14px; border-radius:50%; border:4px solid var(--accent-soft); border-top-color:var(--a2); animation: stSpin .8s linear infinite; }
   #stemtube .loading p { margin:0; color:var(--muted); font-size:14px; }
   @media (max-width: 600px) { #stemtube { border-radius:0; } #stemtube .brand p { display:none; } #stemtube .status { width:100%; order:5; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; } #stemtube .status::-webkit-scrollbar { display:none; } #stemtube .user { order:3; } #stemtube .icon-btn { order:4; } #stemtube .brand { order:1; } #stemtube main { padding:16px 14px 22px; } #stemtube .topbar, #stemtube .stepper, #stemtube footer { padding-left:14px; padding-right:14px; } #stemtube .hero h2 { font-size:24px; } #stemtube .input-row { flex-direction:column; } #stemtube .card { padding:16px; } #stemtube .user span { max-width:120px; } #stemtube .step span.lbl { display:none; } #stemtube .step { min-width:0; justify-content:center; padding:8px; } #stemtube .step.active span.lbl { display:inline; } }
+
+  #stemtube .studio-preview { margin:16px 0; border:1px solid #8471ba55; border-radius:20px; overflow:hidden; background:linear-gradient(135deg,#201d36,#141827); color:#f4f1ff; box-shadow:0 8px 26px #0002; }
+  #stemtube .studio-preview summary { display:flex; align-items:center; gap:14px; padding:18px 22px; cursor:pointer; list-style:none; }
+  #stemtube .studio-preview summary::-webkit-details-marker { display:none; }
+  #stemtube .studio-preview summary>span:nth-child(2) { flex:1; min-width:0; }
+  #stemtube .studio-preview summary small { display:block; color:#b9b1cd; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:4px; }
+  #stemtube .preview-icon { display:grid; place-items:center; width:44px; height:44px; border-radius:14px; background:#9d7eff22; color:#c7b5ff; font-size:26px; }
+  #stemtube .preview-body { padding:0 22px 18px; }
+  #stemtube .preview-body audio { display:none; }
+  #stemtube .preview-body video { display:block; width:100%; max-height:480px; object-fit:contain; background:#080910; border-radius:12px; margin-bottom:16px; }
+  #stemtube .preview-transport { display:flex; align-items:center; gap:18px; padding:14px 0; }
+  #stemtube .preview-play { width:54px; height:54px; flex-shrink:0; border:0; border-radius:50%; background:linear-gradient(140deg,#df72c0,#8c64ff); color:white; font-size:22px; cursor:pointer; box-shadow:0 4px 18px #9564ff44; }
+  #stemtube .preview-play:disabled { opacity:.45; cursor:wait; }
+  #stemtube .preview-timeline { flex:1; min-width:0; }
+  #stemtube .preview-time { display:flex; justify-content:space-between; color:#c3bdd5; font-variant-numeric:tabular-nums; font-size:12px; margin-bottom:8px; }
+  #stemtube .preview-timeline input { width:100%; accent-color:#bb97ff; cursor:pointer; }
+  #stemtube .preview-options { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; border-top:1px solid #ffffff14; padding-top:14px; font-size:12px; color:#c3bdd5; }
+  #stemtube .preview-options label { display:flex; align-items:center; gap:10px; }
+  #stemtube .preview-options input { width:90px; accent-color:#bb97ff; }
+  #stemtube .preview-options select { background:#29233d; color:#eee8ff; border:1px solid #77658f; border-radius:8px; padding:5px 8px; }
+  #stemtube .preview-status { font-size:12px; color:#bdb3d5; margin:14px 0 8px; }
+  #stemtube .preview-body .small { color:#9993ac; font-size:11px; margin:10px 0 0; }
+  #stemtube .studio-preview.is-playing { border-color:#b393ff; }
+  #stemtube .preview-retry[hidden] { display:none; }
+
 </style>
 
 <div id="stemtube" data-theme="dark">
@@ -657,6 +682,7 @@
     S.step = n; S.maxStep = Math.max(S.maxStep, n);
     $$('section[data-step]').forEach(s => s.classList.toggle('on', +s.dataset.step === n));
     $$('.step').forEach(st => { const k = +st.dataset.go; st.classList.toggle('active', k===n); st.classList.toggle('done', k<n); });
+    if(n !== 5) (S.resultPlayers || []).forEach(p => p.pause());
     if(n !== 5 && S.mixer) S.mixer.pause();
     if(n !== 3) stopWatchModels();
     root.scrollIntoView({behavior:'smooth', block:'start'}); resize();
@@ -1152,6 +1178,7 @@
     for(let i=0;i<36;i++){ const c = document.createElement('i'); c.className = 'confetti'; c.style.left = Math.random()*100+'%'; c.style.background = colors[i%colors.length]; c.style.animationDelay = (Math.random()*.6)+'s'; c.style.animationDuration = (1.4+Math.random())+'s'; card.appendChild(c); setTimeout(()=>c.remove(), 3000); }
   }
   async function renderResult(j){
+    clearResultPlayers();
     const card = $('#resultCard');
     if(S.mixer){ S.mixer.destroy(); S.mixer = null; }
     const files = j.files || [];
@@ -1187,13 +1214,14 @@
     card.innerHTML = `<div class="result-head"><div class="big ${kind==='ok'?'':kind}">${kind==='ok'?'🎉':(kind==='warn'?'⚠️':'❌')}</div><div><h2 style="margin:0">${title}</h2><p class="sub" style="margin:4px 0 0"><b>${esc(j.title||'')}</b> · ${esc(j.label||'')}${j.elapsed ? ` · levou ${fmtEta(j.elapsed)}` : ''}<br>${done.length} ${done.length===1?'arquivo pronto':'arquivos prontos'}${errs.length?` · ${errs.length} com erro`:''}${canc.length?` · ${canc.length} cancelados`:''}${j.save_drive && done.length ? ' · cópias salvas em Meu Drive / StemTube / Downloads' : ''}</p></div></div>
       ${done.length ? `<div class="note info" style="margin-top:14px">Clique em <b>Baixar</b> para salvar cada arquivo no seu computador${done.length>1?', ou use <b>Baixar tudo (.zip)</b>':''}. Os arquivos ficam neste servidor só enquanto a sessão do Colab estiver ativa.</div>` : ''}
       ${j.warning ? `<div class="note warn">${esc(j.warning)}</div>` : ''}
-      <div class="jobs">${items.map(itemJobRow).join('')}</div>`;
+      <div class="jobs">${items.map(itemJobRow).join('')}</div>${previewMarkup(j.files || [], true)}`;
     const single = items.length === 1 && done.length === 1 && S.analysis && S.analysis.video && S.analysis.video.id === items[0].id && S.cfg.separator && !S.analysis.video.too_long;
     $('#resultActions').innerHTML = `<button class="btn ghost" id="newBtn">↺ Nova tarefa</button><div class="right">${single ? '<button class="btn" id="sepBtn">🎧 Separar faixas desta música</button>' : ''}${done.length>1 ? '<button class="btn" id="zipBtn">🗜 Baixar tudo (.zip)</button>' : ''}${errs.length ? '<button class="btn" id="retryBtn">↻ Tentar novamente os que falharam</button>' : ''}</div>`;
     $('#newBtn').addEventListener('click', resetToStart);
     const sb = $('#sepBtn'); if(sb) sb.addEventListener('click', () => { S.choice = 'video'; S.action = 'separate'; renderActions(); goto(3); });
     const zb = $('#zipBtn'); if(zb) zb.addEventListener('click', async () => { busy(zb, true, 'Compactando…'); const r = await api('zip_job', j.id); busy(zb, false); if(!r.ok) return toast(r.error, 'err'); toast(`ZIP pronto (${r.size_label}).`, 'ok'); downloadRel(r.rel, zb); });
     const rb = $('#retryBtn'); if(rb) rb.addEventListener('click', () => retryFailed(j, false));
+    mountResultPlayers(j.files || []);
     if(kind === 'ok') confetti(card);
   }
   async function renderStemsResult(j){
@@ -1205,7 +1233,7 @@
       ${sep ? `<div class="note info" style="margin-top:16px">Ouça o resultado no <b>mixer</b>: silencie (M) ou isole (S) cada faixa e ajuste o volume. Baixe as faixas separadas ou use <b>Renderizar mixagem</b> para juntar as faixas audíveis em um único áudio. A faixa Original serve apenas para comparação e nunca entra na mixagem.</div>
       <div class="transport" style="margin-top:14px"><button class="playbtn" id="mxPlay" title="Tocar / pausar">▶</button><div><input type="range" class="seek" id="mxSeek" min="0" max="1000" value="0"><div class="row" style="justify-content:space-between;margin-top:4px"><span class="time" id="mxCur">0:00</span><span class="time" id="mxDur">${fmtDur(j.duration)}</span></div></div><span class="badge" id="mxState">carregando…</span></div>` : ''}
       <div class="stems" id="stemList"></div>
-      ${!sep && files[0] && files[0].preview ? `<audio class="mixprev" id="mixPrev" controls preload="none"></audio>` : ''}
+      ${previewMarkup(files, !sep)}
       ${sep ? `<div class="note info"><b>Mixagem personalizada</b><p id="mixSummary" aria-live="polite"></p><div class="row" style="flex-wrap:wrap;gap:12px"><label>Formato <select id="mixFormat"><option value="wav">WAV</option><option value="flac">FLAC</option><option value="mp3">MP3 · 320 kbps</option></select></label>${S.cfg.drive ? `<label><input type="checkbox" id="mixDrive" ${j.save_drive ? 'checked' : ''}> Salvar também no Drive</label>` : ''}<button class="btn primary" id="mixBtn">🎛 Renderizar mixagem</button></div><p class="small" style="margin:8px 0 0">Respeita M, Solo e volumes. O limitador protege a soma contra picos excessivos.</p></div>` : ''}`;
     const list = $('#stemList');
     const rows = files.map(f => ({...f}));
@@ -1215,7 +1243,7 @@
     $('#newBtn').addEventListener('click', resetToStart);
     const ab = $('#againBtn'); if(ab) ab.addEventListener('click', () => { S.action = 'separate'; renderActions(); goto(3); });
     const zb = $('#zipBtn'); if(zb) zb.addEventListener('click', async () => { busy(zb, true, 'Compactando…'); const r = await api('zip_job', j.id); busy(zb, false); if(!r.ok) return toast(r.error, 'err'); toast(`ZIP pronto (${r.size_label}).`, 'ok'); downloadRel(r.rel, zb); });
-    const mp = $('#mixPrev'); if(mp){ try { mp.src = await fileUrl(files[0].preview); } catch(e){} }
+    mountResultPlayers(files);
     confetti(card); resize();
     if(sep) S.mixer = await buildMixer(rows, j.duration);
     const backStems = $('#backStemsBtn'); if(backStems) backStems.addEventListener('click', () => viewJob(j.parent_id));
@@ -1231,6 +1259,101 @@
       } catch(e){ toast(e.message, 'err'); }
       finally { busy(mixBtn, false); }
     });
+  }
+  function clearResultPlayers(){
+    (S.resultPlayers || []).forEach(p => p.destroy()); S.resultPlayers = [];
+  }
+  function previewMarkup(files, autoOpen=false){
+    return `<div class="result-previews">${files.map((f,i) => {
+      const video = f.preview_kind === 'video';
+      if(!f.preview) return `<p class="small">Prévia indisponível para ${esc(f.label || f.file)}. Use Baixar para abrir o arquivo.</p>`;
+      return `<details class="studio-preview" data-preview-index="${i}" ${autoOpen && files.length === 1 ? 'open' : ''}>
+        <summary><span class="preview-icon">${video ? '▷' : '♫'}</span><span><b>${video ? 'Ver vídeo' : 'Ouvir áudio'}</b><small>${esc(f.file || f.label)}</small></span><span class="badge">PRÉVIA</span></summary>
+        <div class="preview-body">
+          ${video ? '<video playsinline preload="none" aria-label="Prévia do vídeo"></video>' : '<audio preload="none" aria-label="Prévia do áudio"></audio>'}
+          <div class="preview-transport"><button class="preview-play" aria-label="Reproduzir prévia" disabled>▶</button><div class="preview-timeline"><div class="preview-time"><span data-current>0:00</span><span data-duration>0:00</span></div><input data-seek type="range" min="0" max="1000" value="0" aria-label="Posição da prévia" disabled></div></div>
+          <div class="preview-options"><label>Volume <input data-volume type="range" min="0" max="100" value="100" aria-label="Volume da prévia"></label><label>Velocidade <select data-speed aria-label="Velocidade da prévia"><option value="0.5">0,5×</option><option value="0.75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="2">2×</option></select></label></div>
+          <div class="preview-status" role="status" aria-live="polite">Abra para carregar a prévia.</div><button class="btn sm preview-retry" hidden>Tentar carregar novamente</button>
+          <p class="small">${video ? 'Prévia completa em até 480p. O download mantém a resolução escolhida.' : 'Prévia de escuta em MP3. O download mantém o formato escolhido.'}</p>
+        </div></details>`;
+    }).join('')}</div>`;
+  }
+  function mountResultPlayers(files){
+    S.resultPlayers = [];
+    $$('.studio-preview').forEach(panel => {
+      const f = files[Number(panel.dataset.previewIndex)];
+      const controller = mountMediaPreview(panel, f.preview);
+      S.resultPlayers.push(controller);
+    });
+  }
+  function mountMediaPreview(panel, rel){
+    const audio = panel.querySelector('audio,video'), status = panel.querySelector('.preview-status');
+    const retry = panel.querySelector('.preview-retry'), play = panel.querySelector('.preview-play');
+    const seek = panel.querySelector('[data-seek]'), volume = panel.querySelector('[data-volume]');
+    const speed = panel.querySelector('[data-speed]'), current = panel.querySelector('[data-current]');
+    const duration = panel.querySelector('[data-duration]');
+    let destroyed=false, generation=0, viaBridge=false, ready=false, started=false;
+    let timer=null, objectUrl=null;
+    const events=[];
+    function listen(target, event, fn){ target.addEventListener(event,fn); events.push([target,event,fn]); }
+    function release(){ clearTimeout(timer); audio.pause(); audio.removeAttribute('src'); audio.load(); if(objectUrl){ URL.revokeObjectURL(objectUrl); objectUrl=null; } }
+    function fail(message){ if(destroyed) return; clearTimeout(timer); play.disabled=true; status.textContent=message+' O arquivo continua disponível no botão Baixar.'; retry.hidden=false; }
+    function deadline(run){
+      clearTimeout(timer);
+      timer=setTimeout(() => { if(!destroyed && run===generation && !ready){ generation++; fail('O carregamento demorou demais.'); } },30000);
+    }
+    async function fallback(run){
+      if(destroyed || run!==generation || viaBridge) return;
+      viaBridge=true; ready=false; deadline(run);
+      status.textContent='Carregando prévia por conexão alternativa…';
+      try {
+        const chunks=[]; let offset=0, total=null, mime='audio/mpeg';
+        do {
+          const r=await api('preview_chunk',rel,offset);
+          if(destroyed || run!==generation) return;
+          if(!r?.ok || !r.b64 || r.offset!==offset || r.next_offset<=offset || r.next_offset>r.total || (total!==null && total!==r.total)) throw new Error('Prévia inválida');
+          chunks.push(Uint8Array.from(atob(r.b64),c=>c.charCodeAt(0)));
+          offset=r.next_offset; total=r.total; mime=r.mime;
+          status.textContent=`Carregando prévia… ${Math.round(offset/total*100)}%`;
+          deadline(run);
+        } while(offset<total);
+        objectUrl=URL.createObjectURL(new Blob(chunks,{type:mime}));
+        audio.src=objectUrl; audio.load();
+      } catch(e){ if(!destroyed && run===generation) fail('Não foi possível carregar a prévia.'); }
+    }
+    function onReady(){
+      if(destroyed) return;
+      ready=true; clearTimeout(timer); play.disabled=false; seek.disabled=false; retry.hidden=true;
+      duration.textContent=fmtDur(audio.duration);
+      status.textContent='Pronto para reproduzir.';
+    }
+    function onError(){ if(destroyed) return; if(viaBridge) fail('O navegador não conseguiu abrir a prévia.'); else fallback(generation); }
+    async function start(){
+      const run=++generation; started=true; release(); viaBridge=false; ready=false;
+      play.disabled=true; seek.disabled=true; retry.hidden=true; status.textContent='Carregando prévia…'; audio.preload='auto';
+      timer=setTimeout(()=>{ if(!ready) fallback(run); },8000);
+      try { const url=await fileUrl(rel); if(destroyed || run!==generation || viaBridge) return; audio.src=url; audio.load(); }
+      catch(e){ fallback(run); }
+    }
+    listen(audio,'canplay',onReady); listen(audio,'error',onError);
+    listen(audio,'loadedmetadata',()=>{duration.textContent=fmtDur(audio.duration);});
+    listen(audio,'timeupdate',()=>{ current.textContent=fmtDur(audio.currentTime); seek.value=audio.duration ? audio.currentTime/audio.duration*1000 : 0; seek.style.setProperty('--p',seek.value/10+'%'); });
+    listen(audio,'play',()=>{ play.textContent='❚❚'; play.setAttribute('aria-label','Pausar prévia'); panel.classList.add('is-playing'); status.textContent='Reproduzindo.'; });
+    listen(audio,'pause',()=>{ play.textContent='▶'; play.setAttribute('aria-label','Reproduzir prévia'); panel.classList.remove('is-playing'); if(ready) status.textContent='Pausado.'; });
+    listen(audio,'ended',()=>{status.textContent='Reprodução concluída.';});
+    listen(play,'click',async()=>{
+      if(!audio.paused){ audio.pause(); return; }
+      (S.resultPlayers||[]).forEach(p=>p.pause()); if(S.mixer) S.mixer.pause();
+      try { if(audio.ended) audio.currentTime=0; await audio.play(); }
+      catch(e){ if(!destroyed){status.textContent='Não foi possível iniciar. Clique em reproduzir novamente.';} }
+    });
+    listen(seek,'input',()=>{if(Number.isFinite(audio.duration)) audio.currentTime=Number(seek.value)/1000*audio.duration;});
+    listen(volume,'input',()=>{audio.volume=Number(volume.value)/100;});
+    listen(speed,'change',()=>{audio.playbackRate=Number(speed.value);});
+    listen(retry,'click',start);
+    listen(panel,'toggle',()=>{ if(panel.open){if(!started) start();} else audio.pause(); resize(); });
+    if(panel.open) start();
+    return {pause(){audio.pause();},destroy(){destroyed=true;generation++;events.forEach(([t,e,f])=>t.removeEventListener(e,f));release();}};
   }
   async function buildMixer(rows, duration){
     const audios = []; let ready = 0, destroyed = false; const withPrev = rows.map((f, i) => ({f, i})).filter(x => x.f.preview || !x.f.original);
@@ -1277,7 +1400,7 @@
     });
     list.addEventListener('input', e => { const v = e.target.closest('[data-vol]'); if(!v) return; const x = audios.find(x => x.i == v.dataset.vol); if(x){ x.vol = v.value/100; v.style.setProperty('--p', v.value+'%'); applyGains(); } });
     function sync(){ if(!master) return; audios.forEach(x => { if(x.a !== master && Math.abs(x.a.currentTime - master.currentTime) > 0.12) x.a.currentTime = master.currentTime; }); }
-    async function doPlay(){ if(!master || destroyed) return; if(ready < audios.length){ toast('Aguarde todas as prévias carregarem antes de reproduzir.', 'info', 4000); return; } play.disabled = true; try { sync(); const result = await Promise.allSettled(audios.map(x => x.a.play())); if(destroyed || result.some(r => r.status === 'rejected')){ doPause(); if(!destroyed) toast('Não foi possível reproduzir todas as faixas. Tente novamente ou baixe os arquivos.', 'err'); return; } playing = true; play.textContent = '❚❚'; state.textContent = 'tocando'; applyGains(); } finally { play.disabled = false; } }
+    async function doPlay(){ (S.resultPlayers || []).forEach(p => p.pause()); if(!master || destroyed) return; if(ready < audios.length){ toast('Aguarde todas as prévias carregarem antes de reproduzir.', 'info', 4000); return; } play.disabled = true; try { sync(); const result = await Promise.allSettled(audios.map(x => x.a.play())); if(destroyed || result.some(r => r.status === 'rejected')){ doPause(); if(!destroyed) toast('Não foi possível reproduzir todas as faixas. Tente novamente ou baixe os arquivos.', 'err'); return; } playing = true; play.textContent = '❚❚'; state.textContent = 'tocando'; applyGains(); } finally { play.disabled = false; } }
     function doPause(){ audios.forEach(x => x.a.pause()); playing = false; play.textContent = '▶'; state.textContent = 'pausado'; applyGains(); }
     play.addEventListener('click', () => playing ? doPause() : doPlay());
     if(master){
@@ -1293,7 +1416,7 @@
     return { selection, pause: doPause, destroy(){ destroyed = true; doPause(); audios.forEach(x => { x.a.src = ''; x.a.load(); }); } };
   }
   root.addEventListener('click', e => { const b = e.target.closest('[data-dl]'); if(b && !b.disabled) downloadRel(b.dataset.dl, b); });
-  function resetToStart(){ if(S.mixer){ S.mixer.destroy(); S.mixer = null; } S.jobId = null; S.source = null; S.analysis = null; S.choice = null; resetSelection(); $('#urlInput').value = ''; S.maxStep = 1; stopWatchModels(); goto(1); $$('.step').forEach(s=>s.classList.remove('done')); $('#urlInput').focus(); }
+  function resetToStart(){ clearResultPlayers(); if(S.mixer){ S.mixer.destroy(); S.mixer = null; } S.jobId = null; S.source = null; S.analysis = null; S.choice = null; resetSelection(); $('#urlInput').value = ''; S.maxStep = 1; stopWatchModels(); goto(1); $$('.step').forEach(s=>s.classList.remove('done')); $('#urlInput').focus(); }
 
   // ---------- fila (visível em todas as etapas) ----------
   function startQueuePolling(){ if(S.queueTimer) return; pollQueue(); S.queueTimer = setInterval(pollQueue, 1500); }

@@ -189,7 +189,7 @@ def _output_path(rel, preview=False):
     path = os.path.realpath(os.path.join(root, rel))
     if os.path.commonpath((root, path)) != root or not os.path.isfile(path):
         raise FileNotFoundError('Arquivo não encontrado nesta sessão.')
-    if preview and (not path.endswith('.preview.mp3') or os.path.getsize(path) > 32 * 1024 * 1024):
+    if preview and not path.endswith(('.preview.mp3', '.preview.mp4')):
         raise ValueError('Prévia inválida ou grande demais para a ponte do Colab.')
     return path
 
@@ -849,11 +849,17 @@ def _run_download_job(job):
                 st['warning'] = _friendly_error(logger.errors[-1])
             if job.get('trim'):
                 path = _cut_clip(job, st, path, info, out_dir)
+            preview = os.path.join(out_dir, st['id'] + ('.preview.mp4' if is_video else '.preview.mp3'))
+            st.update({'status': 'processing', 'stage': 'Preparando prévia…'})
+            _dl_progress(job, st)
+            preview_ok = _make_video_preview(path, preview, job) if is_video else _make_preview(path, preview, job)
             size = os.path.getsize(path)
             drive_path = _copy_to_drive(job, path, os.path.join('Downloads', job.get('folder') or ''))
             st.update({'status': 'done', 'percent': 100, 'stage': 'Concluído',
                        'file': os.path.basename(path), 'rel': f"{job['id']}/{os.path.basename(path)}",
                        'size': size, 'size_label': _fmt_size(size), 'drive_path': drive_path,
+                       'preview': f"{job['id']}/{os.path.basename(preview)}" if preview_ok else None,
+                       'preview_kind': 'video' if is_video else 'audio',
                        'title': (info or {}).get('title') or st.get('title')})
         except yt_dlp.utils.DownloadCancelled:
             st.update({'status': 'cancelled', 'stage': 'Cancelado'})
@@ -865,7 +871,7 @@ def _run_download_job(job):
     job['files'] = [{'stem': 'Video' if is_video else 'Audio', 'label': s.get('title') or s['file'],
                      'icon': '🎬' if is_video else '🎵', 'color': '#ff5c7a' if is_video else '#38bdf8',
                      'file': s['file'], 'rel': s['rel'], 'size': s['size'], 'size_label': s['size_label'],
-                     'preview': None, 'drive_path': s.get('drive_path'), 'warning': s.get('warning')} for s in done]
+                     'preview': s.get('preview'), 'preview_kind': s.get('preview_kind'), 'drive_path': s.get('drive_path'), 'warning': s.get('warning')} for s in done]
     job['done_items'], job['error_items'] = len(done), len(errs)
     if errs and done:
         job['warning'] = f"{len(errs)} de {len(job['items'])} {'item falhou' if len(errs) == 1 else 'itens falharam'}. Use \"Tentar novamente\" para repetir só os que deram erro."
@@ -1108,6 +1114,23 @@ def _run_separator_mock(job, wav, mode, out_format, out_dir, names):
         subprocess.run(['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', wav, '-af', filters[stem]] + codec + [dst], check=True)
         job['percent'] = (i + 1) / len(stems) * 100; time.sleep(0.4)
     job['sep_seconds'] = 3
+
+def _make_video_preview(src_path, dst_path, job):
+    """Prévia completa H.264/AAC em até 480p, sem alterar o vídeo para download."""
+    try:
+        _run_process(job, ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', src_path,
+                          '-map', '0:v:0', '-map', '0:a:0?', '-vf',
+                          "scale=w='min(854,iw)':h='min(480,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1",
+                          '-r', '24', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '30',
+                          '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '96k',
+                          '-ac', '2', '-movflags', '+faststart', dst_path], timeout=3600)
+        return os.path.isfile(dst_path) and os.path.getsize(dst_path) > 0
+    except yt_dlp.utils.DownloadCancelled:
+        raise
+    except Exception:
+        if os.path.exists(dst_path): os.remove(dst_path)
+        job['warning'] = 'O vídeo foi gerado, mas sua prévia não pôde ser criada. Use Baixar para abrir o arquivo.'
+        return False
 
 def _make_preview(src_path, dst_path, job):
     try:
@@ -1405,9 +1428,27 @@ def cb_preview_b64(rel):
     """Plano B do mixer: entrega a prévia em base64 pela ponte do Colab quando o proxy de portas não responde."""
     try:
         path = _output_path(rel, preview=True)
+        if os.path.getsize(path) > 32 * 1024 * 1024:
+            raise ValueError('Use o carregamento em blocos para esta prévia.')
         with open(path, 'rb') as f:
             data = base64.b64encode(f.read()).decode('ascii')
-        return JSON({'ok': True, 'b64': data, 'mime': 'audio/mpeg'})
+        return JSON({'ok': True, 'b64': data, 'mime': 'video/mp4' if path.endswith('.mp4') else 'audio/mpeg'})
+    except Exception as e:
+        return JSON({'ok': False, 'error': str(e)})
+
+def cb_preview_chunk(rel, offset=0):
+    """Transfere prévias em blocos pequenos quando o proxy do Colab falha."""
+    try:
+        path = _output_path(rel, preview=True)
+        total = os.path.getsize(path)
+        if isinstance(offset, bool) or not isinstance(offset, int) or not 0 <= offset <= total:
+            raise ValueError('Posição da prévia inválida.')
+        with open(path, 'rb') as stream:
+            stream.seek(offset)
+            chunk = stream.read(512 * 1024)
+        return JSON({'ok': True, 'b64': base64.b64encode(chunk).decode('ascii'),
+                     'offset': offset, 'next_offset': offset + len(chunk), 'total': total,
+                     'mime': 'video/mp4' if path.endswith('.mp4') else 'audio/mpeg'})
     except Exception as e:
         return JSON({'ok': False, 'error': str(e)})
 
@@ -1530,6 +1571,6 @@ for _n, _f in {
     'analyze': cb_analyze, 'upload_start': cb_upload_start, 'upload_chunk': cb_upload_chunk, 'upload_finish': cb_upload_finish,
     'start_job': cb_start_job, 'job_status': cb_job_status, 'jobs_list': cb_jobs_list, 'cancel_job': cb_cancel_job,
     'zip_job': cb_zip_job, 'colab_download': cb_colab_download, 'cleanup': cb_cleanup, 'models_status': cb_models_status,
-    'preview_b64': cb_preview_b64, 'mix_job': cb_mix_job,
+    'preview_b64': cb_preview_b64, 'preview_chunk': cb_preview_chunk, 'mix_job': cb_mix_job,
 }.items():
     _register(_n, _f)

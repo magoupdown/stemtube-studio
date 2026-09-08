@@ -220,7 +220,53 @@ try:
 finally:
     ns['DRIVE_ROOT'], ns['DRIVE_MYDRIVE'] = old_root, old_drive
 
-print('8) cancelamento e limpeza')
+print('8) prévias de áudio e vídeo e transferência em blocos')
+previewdir = os.path.join(ns['OUT_DIR'], 'preview_qa')
+os.makedirs(previewdir, exist_ok=True)
+video_src = os.path.join(TEST_ROOT, 'test_video.mp4')
+subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=24:duration=2',
+                '-f', 'lavfi', '-i', 'sine=frequency=220:duration=2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', video_src], check=True)
+video_prev = os.path.join(previewdir, 'test.preview.mp4')
+check(ns['_make_video_preview'](video_src, video_prev, {}), 'prévia real de vídeo gerada')
+probe = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-show_streams', '-of', 'json', video_prev]))
+vs = next(x for x in probe['streams'] if x['codec_type'] == 'video')
+check(vs['codec_name'] == 'h264' and vs['height'] <= 480 and any(x['codec_name']=='aac' for x in probe['streams']), 'prévia de vídeo em H.264/AAC até 480p')
+check(abs(ns['_ffprobe_duration'](video_prev) - 2) < 0.1, 'prévia de vídeo preserva duração completa')
+check(ns['cb_preview_b64']('preview_qa/test.preview.mp4').data['mime']=='video/mp4', 'MIME correto para prévia de vídeo')
+# Mais de um bloco: verificação exata de bytes, sem enviar arquivo arbitrário pela ponte.
+big = os.path.join(previewdir, 'large.preview.mp3')
+content = b'0123456789' * 120000
+with open(big, 'wb') as f: f.write(content)
+offset = 0
+rebuilt = bytearray()
+while offset < len(content):
+    chunk = ns['cb_preview_chunk']('preview_qa/large.preview.mp3', offset).data
+    assert chunk['ok'] and chunk['offset']==offset and chunk['total']==len(content)
+    decoded = base64.b64decode(chunk['b64'])
+    assert len(decoded) <= 512*1024
+    rebuilt.extend(decoded); offset = chunk['next_offset']
+check(bytes(rebuilt)==content, 'prévia reconstruída em múltiplos blocos sem alteração')
+check(not ns['cb_preview_chunk']('preview_qa/large.preview.mp3', -1).data['ok'], 'offset negativo rejeitado')
+check(not ns['cb_preview_chunk']('preview_qa/large.preview.mp3', True).data['ok'], 'offset booleano rejeitado')
+check(not ns['cb_preview_chunk']('preview_qa/large.preview.mp3', len(content)+1).data['ok'], 'offset acima do arquivo rejeitado')
+check(not ns['cb_preview_chunk']('../cookies.txt', 0).data['ok'], 'travessia recusada na transferência em blocos')
+check(not ns['cb_preview_chunk'](rel, 0).data['ok'], 'arquivo final que não é prévia recusado')
+
+class SuccessfulDownload:
+    def __init__(self, opts): self.opts=opts
+    def __enter__(self): return self
+    def __exit__(self, *args): pass
+    def extract_info(self, *args, **kwargs):
+        target = os.path.join(os.path.dirname(self.opts['outtmpl']), 'download' + ('.mp4' if video_mode else '.wav'))
+        ns['shutil'].copy2(video_src if video_mode else wav, target)
+        return {'filepath':target,'title':'Teste','duration':2 if video_mode else 3}
+for video_mode in (False,True):
+    dj = ns['_new_download_job']({'items':[{'id':'dQw4w9WgXcQ'}], 'mode':'video' if video_mode else 'audio','audio_format':'wav'})
+    dj['id']='qa_video_download' if video_mode else 'qa_audio_download'
+    with patch.object(ns['yt_dlp'],'YoutubeDL',SuccessfulDownload): ns['_run_download_job'](dj)
+    check(bool(dj['files'][0]['preview']) and dj['files'][0]['preview_kind']==('video' if video_mode else 'audio'), 'download inclui prévia '+('de vídeo' if video_mode else 'de áudio'))
+
+print('9) cancelamento e limpeza')
 job2 = ns['cb_start_job']({'kind': 'separate', 'source_id': fin['source']['id'], 'mode': '6stem', 'out_format': 'wav'}).data
 ns['cb_cancel_job'](job2['job_id'])
 c = wait_job(job2['job_id'])
