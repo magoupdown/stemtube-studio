@@ -176,7 +176,8 @@ def _ffprobe_duration(path):
     try:
         out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', path],
                              capture_output=True, text=True, timeout=60).stdout.strip()
-        return float(out) if out else 0.0
+        duration = float(out) if out else 0.0
+        return duration if math.isfinite(duration) and duration > 0 else 0.0
     except Exception:
         return 0.0
 
@@ -644,12 +645,40 @@ def _stage(job, key, label, status='running', percent=None):
     if status == 'running': job['status'] = 'running'
 
 def _copy_to_drive(job, path, sub):
-    if not (job.get('save_drive') and _drive_on()):
+    if not job.get('save_drive'):
         return None
-    d = os.path.join(DRIVE_ROOT, sub); os.makedirs(d, exist_ok=True)
-    dst = os.path.join(d, os.path.basename(path))
-    shutil.copy2(path, dst)
-    return dst.replace(DRIVE_MYDRIVE, 'Meu Drive')
+    try:
+        if not _drive_on():
+            raise OSError('Google Drive desconectado')
+        root = os.path.realpath(DRIVE_ROOT)
+        d = os.path.realpath(os.path.join(root, sub))
+        if os.path.commonpath((root, d)) != root:
+            raise ValueError('Pasta de destino inválida.')
+        os.makedirs(d, exist_ok=True)
+        dst = os.path.join(d, os.path.basename(path))
+        # Reserva o nome sem sobrescrever arquivos de tarefas anteriores.
+        base, ext = os.path.splitext(dst)
+        index = 1
+        while True:
+            try:
+                target = open(dst, 'xb')
+                break
+            except FileExistsError:
+                dst = f'{base} ({index}){ext}'
+                index += 1
+        try:
+            with target, open(path, 'rb') as source:
+                shutil.copyfileobj(source, target)
+        except Exception:
+            try: os.remove(dst)
+            except OSError: pass
+            raise
+        return dst.replace(DRIVE_MYDRIVE, 'Meu Drive', 1)
+    except Exception as e:
+        warning = 'Arquivo disponível nesta sessão, mas a cópia no Drive falhou: ' + str(e)
+        job['warning'] = warning
+        job.setdefault('drive_warnings', []).append(warning)
+        return None
 
 def _final_path(info, out_dir, before):
     rd = (info or {}).get('requested_downloads') or []
@@ -716,7 +745,7 @@ def _build_dl_opts(job, st, out_dir):
         embed_meta = False
     if mode == 'audio':
         opts['format'] = 'ba/b'
-        if audio_format != 'best':
+        if audio_format != 'best' and not job.get('trim'):
             pp = {'key': 'FFmpegExtractAudio', 'preferredcodec': audio_format}
             if audio_format not in ('wav', 'flac') and audio_quality and audio_quality != 'best':
                 pp['preferredquality'] = str(audio_quality)
@@ -740,7 +769,7 @@ def _build_dl_opts(job, st, out_dir):
 
 def _cut_clip(job, st, src_path, info, out_dir):
     """Corta [start, end] do arquivo completo com ffmpeg, mostrando progresso.
-    Vídeo: recodifica (H.264) para o corte ser exato no tempo pedido. Áudio: cópia direta (sem perda)."""
+    Vídeo: H.264. Áudio: recodificação para corte preciso; original mantém pacotes."""
     trim = job['trim']; start, end = float(trim['start']), float(trim['end'])
     dur_total = float((info or {}).get('duration') or 0) or _ffprobe_duration(src_path)
     if dur_total and start >= dur_total:
@@ -751,7 +780,9 @@ def _cut_clip(job, st, src_path, info, out_dir):
     if length < 0.5:
         raise RuntimeError('O trecho ficou curto demais depois de ajustar ao tamanho do vídeo.')
     title = _safe_name((info or {}).get('title') or st.get('title') or 'video', 140)
-    ext = os.path.splitext(src_path)[1].lstrip('.') or ('mp4' if job['mode'] == 'video' else 'm4a')
+    ext = ('mp4' if job['mode'] == 'video' else job['audio_format'])
+    if ext == 'best':
+        ext = os.path.splitext(src_path)[1].lstrip('.') or 'm4a'
     tag = f"(trecho {_hms(start).replace(':', '.')}-{_hms(end).replace(':', '.')})"
     dst = os.path.join(out_dir, f"{title} [{(info or {}).get('id') or st.get('id')}] {tag}.{ext}")
     meta = ['-metadata', f"title={(info or {}).get('title') or ''} {tag}",
@@ -759,11 +790,26 @@ def _cut_clip(job, st, src_path, info, out_dir):
             '-metadata', f"comment={(info or {}).get('webpage_url') or ''}"]
     if job['mode'] == 'video':
         codec = ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart']
+        mapping = ['-map', '0:v:0', '-map', '0:a:0?']
     else:
-        codec = ['-c', 'copy']
+        fmt = job['audio_format']
+        quality = job['audio_quality']
+        bitrate = quality if quality != 'best' else '320'
+        codec = {
+            'mp3': ['-c:a', 'libmp3lame'] + (['-q:a', '0'] if quality == 'best' else ['-b:a', bitrate + 'k']),
+            'm4a': ['-c:a', 'aac', '-b:a', bitrate + 'k'],
+            'opus': ['-c:a', 'libopus', '-b:a', bitrate + 'k'],
+            'wav': ['-c:a', 'pcm_s24le'], 'flac': ['-c:a', 'flac'],
+            'best': ['-c:a', 'copy'],
+        }[fmt]
+        mapping = ['-map', '0:a:0', '-vn']
+        if fmt == 'best':
+            job['warning'] = 'No formato original, o recorte segue os pacotes de áudio e pode variar alguns milissegundos. Para corte preciso, escolha outro formato.'
+    if not job.get('embed_meta', True):
+        meta = []
     progress = os.path.join(out_dir, f'cut_{st.get("id") or "x"}.progress')
     cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-nostats', '-progress', progress,
-           '-ss', f'{start:.3f}', '-i', src_path, '-t', f'{length:.3f}', '-map', '0', '-map_metadata', '-1'] + meta + codec + [dst]
+           '-ss', f'{start:.3f}', '-i', src_path, '-t', f'{length:.3f}'] + mapping + ['-map_metadata', '-1'] + meta + codec + [dst]
     st.update({'status': 'processing', 'stage': 'Cortando trecho…' + (' (recodificando vídeo)' if job['mode'] == 'video' else ''), 'percent': 0})
     _dl_progress(job, st)
     def on_progress(pct):
@@ -791,7 +837,7 @@ def _run_download_job(job):
         try:
             opts = _build_dl_opts(job, st, out_dir)
             logger = _SilentLogger(); opts['logger'] = logger
-            opts['ignoreerrors'] = True   # erros de pós-processamento (ex.: capa) não devem derrubar o item inteiro
+            opts['ignoreerrors'] = False  # Nunca tratar uma conversão incompleta como arquivo final.
             before = set(os.listdir(out_dir))
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(st['url'], download=True)
@@ -869,6 +915,7 @@ def _new_download_job(payload):
     if audio_quality not in AUDIO_QUALITIES:
         raise ValueError('Qualidade de áudio inválida.')
     clean_items = []
+    seen = set()
     for it in items:
         vid = str(it.get('id') or '')
         url = str(it.get('url') or '')
@@ -876,12 +923,18 @@ def _new_download_job(payload):
             raise ValueError('Identificador de vídeo inválido na seleção.')
         if not url.startswith('http'):
             url = f'https://www.youtube.com/watch?v={vid}'
-        _parse_url(url, 'video')
+        parsed = _parse_url(url, 'video')
+        if parsed.get('video_id') != vid:
+            raise ValueError('O link não corresponde ao identificador do vídeo.')
+        if vid in seen:
+            continue
+        seen.add(vid)
+        url = f'https://www.youtube.com/watch?v={vid}'
         clean_items.append({'id': vid, 'url': url, 'title': str(it.get('title') or vid)[:200],
                             'thumbnail': str(it.get('thumbnail') or '')[:500] or f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg',
                             'status': 'queued', 'percent': 0, 'stage': 'Na fila'})
     trim = _parse_trim(payload.get('trim'), clean_items)
-    folder = re.sub(r'[^\w\s.-]', '', str(payload.get('folder') or ''))[:80].strip()
+    folder = re.sub(r'[^\w\s.-]', '', str(payload.get('folder') or ''))[:80].strip().strip('.')
     first = clean_items[0]
     n = len(clean_items)
     if mode == 'video':

@@ -1,3 +1,13 @@
+## Revisão técnica de 2026-09-08
+
+- Erros de conversão deixam de ser tratados como downloads concluídos.
+- Recorte de áudio converte apenas o trecho no formato escolhido. O formato original mantém cópia por pacotes, com aviso de precisão limitada.
+- Recortes respeitam a opção de metadados e selecionam explicitamente os fluxos de áudio/vídeo.
+- Cópias no Drive preservam arquivos homônimos e mantêm resultados locais acessíveis em caso de falha de salvamento.
+- Seleções de vídeos são deduplicadas e links divergentes dos identificadores são recusados.
+- Pastas especiais e durações não finitas são tratadas.
+- 75 verificações locais aprovadas; notebook regenerado com fontes sincronizadas.
+
 # Changelog
 
 Todas as mudanças relevantes do StemTube Studio ficam registradas aqui.

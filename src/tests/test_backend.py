@@ -156,7 +156,71 @@ b64 = ns['cb_preview_b64'](j['files'][0]['preview']).data
 check(b64['ok'] and b64['mime'] == 'audio/mpeg' and len(b64['b64']) > 100, 'prévia em base64 (plano B do mixer)')
 check(not ns['cb_preview_b64'](rel).data['ok'], 'arquivo que não é prévia recusado no plano B')
 
-print('7) cancelamento e limpeza')
+print('7) regressões: downloads, recortes e Drive')
+from unittest.mock import patch
+payload = {'items': [{'id': 'dQw4w9WgXcQ'}, {'id': 'dQw4w9WgXcQ'}], 'mode': 'audio', 'audio_format': 'wav'}
+clean = ns['_new_download_job'](payload)
+check(len(clean['items']) == 1, 'seleção duplicada não sobrescreve o mesmo resultado')
+try:
+    ns['_new_download_job']({'items': [{'id': 'dQw4w9WgXcQ', 'url': 'https://youtu.be/dQw4w9WgXcR'}]})
+    raise AssertionError('link divergente aceito')
+except ValueError:
+    check(True, 'link e identificador divergentes rejeitados')
+clean = ns['_new_download_job']({'items': [{'id': 'dQw4w9WgXcQ'}], 'folder': '..'})
+check(clean['folder'] == '', 'pasta ponto-ponto neutralizada')
+with patch.object(ns['subprocess'], 'run') as proc:
+    proc.return_value.stdout = 'nan'
+    check(ns['_ffprobe_duration']('fake') == 0, 'duração NaN rejeitada')
+
+cutdir = tempfile.mkdtemp(dir=TEST_ROOT)
+cutjob = ns['_new_download_job']({'items': [{'id': 'dQw4w9WgXcQ'}], 'mode': 'audio', 'audio_format': 'wav', 'trim': {'start': 0.137, 'end': 1.637}})
+opts = ns['_build_dl_opts'](cutjob, cutjob['items'][0], cutdir)
+check(not opts['postprocessors'], 'recorte evita conversão completa anterior ao corte')
+source = os.path.join(cutdir, 'source.wav')
+ns['shutil'].copy2(wav, source)
+cut = ns['_cut_clip'](cutjob, cutjob['items'][0], source, {'duration': 3}, cutdir)
+check(abs(ns['_ffprobe_duration'](cut) - 1.5) < 1/44100, 'recorte WAV real tem duração precisa de 1,5 s')
+
+for fmt in ('mp3', 'm4a', 'opus', 'flac', 'best'):
+    cutjob = ns['_new_download_job']({'items': [{'id': 'dQw4w9WgXcQ'}], 'mode': 'audio', 'audio_format': fmt, 'trim': {'start': 0.137, 'end': 1.637}})
+    source = os.path.join(cutdir, 'source.wav')
+    ns['shutil'].copy2(wav, source)
+    cut = ns['_cut_clip'](cutjob, cutjob['items'][0], source, {'duration': 3}, cutdir)
+    expected = 'wav' if fmt == 'best' else fmt
+    check(cut.endswith('.' + expected) and abs(ns['_ffprobe_duration'](cut) - 1.5) < 0.1, 'recorte real em ' + fmt)
+
+class FailedConversion:
+    def __init__(self, opts):
+        self.opts = opts
+    def __enter__(self): return self
+    def __exit__(self, *args): pass
+    def extract_info(self, *args, **kwargs):
+        check(self.opts['ignoreerrors'] is False, 'erro de conversão não é ignorado')
+        raise ns['yt_dlp'].utils.DownloadError('conversion failed')
+failed = ns['_new_download_job']({'items': [{'id': 'dQw4w9WgXcQ'}]})
+failed['id'] = 'failed_conversion'
+with patch.object(ns['yt_dlp'], 'YoutubeDL', FailedConversion):
+    try:
+        ns['_run_download_job'](failed)
+        raise AssertionError('falha marcada como sucesso')
+    except RuntimeError:
+        check(failed['items'][0]['status'] == 'error' and not failed['files'], 'conversão falhada não produz sucesso falso')
+
+drive_root = tempfile.mkdtemp(dir=TEST_ROOT)
+old_root, old_drive = ns['DRIVE_ROOT'], ns['DRIVE_MYDRIVE']
+ns['DRIVE_ROOT'], ns['DRIVE_MYDRIVE'] = os.path.join(drive_root, 'StemTube'), drive_root
+drivejob = {'save_drive': True}
+try:
+    first = ns['_copy_to_drive'](drivejob, wav, 'Downloads')
+    second = ns['_copy_to_drive'](drivejob, wav, 'Downloads')
+    check(first != second and len(os.listdir(os.path.join(ns['DRIVE_ROOT'], 'Downloads'))) == 2, 'Drive preserva dois arquivos de mesmo nome')
+    with patch.object(ns['shutil'], 'copyfileobj', side_effect=OSError('quota exceeded')):
+        check(ns['_copy_to_drive'](drivejob, wav, 'Downloads') is None and 'quota exceeded' in drivejob['warning'], 'falha no Drive retorna aviso e preserva arquivo local')
+    check(os.path.exists(wav) and len(os.listdir(os.path.join(ns['DRIVE_ROOT'], 'Downloads'))) == 2, 'cópia incompleta removida sem apagar resultados')
+finally:
+    ns['DRIVE_ROOT'], ns['DRIVE_MYDRIVE'] = old_root, old_drive
+
+print('8) cancelamento e limpeza')
 job2 = ns['cb_start_job']({'kind': 'separate', 'source_id': fin['source']['id'], 'mode': '6stem', 'out_format': 'wav'}).data
 ns['cb_cancel_job'](job2['job_id'])
 c = wait_job(job2['job_id'])

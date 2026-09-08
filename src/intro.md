@@ -4,7 +4,7 @@ Cole um **link do YouTube** (vídeo, Shorts, playlist ou canal) ou envie um **ar
 
 - 🎬 **Baixar o vídeo em MP4** em qualquer resolução disponível (144p a 8K), com playlists inteiras e seleção item a item.
 - 🎵 **Baixar só o áudio** em MP3, M4A/AAC, OPUS, FLAC, WAV ou no formato original, com escolha de qualidade e capa embutida.
-- ✂️ **Recortar um trecho** por tempo (início e fim), em vídeo ou áudio, com corte exato.
+- ✂️ **Recortar um trecho** por tempo (início e fim), em vídeo ou áudio, com recodificação para corte preciso (no formato de áudio original, o corte é aproximado).
 - 🎧 **Separar voz e instrumentos com IA** em 2, 4 ou 6 faixas, ouvir no **mixer** dentro da página, silenciar/isolar faixas e **renderizar sua própria mixagem**.
 
 Tudo com prévia antes de começar, fila com progresso em tempo real, ZIP de tudo e cópia opcional no Google Drive.

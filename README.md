@@ -3,7 +3,7 @@
 [![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/magoupdown/stemtube-studio/blob/main/StemTube.ipynb)
 ![versão](https://img.shields.io/badge/vers%C3%A3o-1.0.0-7c5cff)
 ![licença](https://img.shields.io/badge/licen%C3%A7a-MIT-22d3ee)
-![testes](https://img.shields.io/badge/testes%20locais-59%20ok-34d399)
+![testes](https://img.shields.io/badge/testes%20locais-75%20ok-34d399)
 
 **YouTube, áudio e inteligência artificial em um só aplicativo, dentro do Google Colab.**
 Baixe vídeos e playlists em MP4 ou áudio, recorte um trecho, separe voz e instrumentos com IA, ouça no mixer e renderize sua própria mixagem — tudo com uma interface de página web, prévia antes de começar e fila com progresso em tempo real.
@@ -19,7 +19,7 @@ Baixe vídeos e playlists em MP4 ou áudio, recorte um trecho, separe voz e inst
 | 🎬 | **Vídeo em MP4** | Qualquer resolução disponível (144p a 8K), com fps, HDR e tamanho estimado. VP9/AV1 empacotados em MP4 sem perda. |
 | 🎵 | **Somente áudio** | MP3, M4A/AAC, OPUS, FLAC, WAV ou original, com qualidade (96–320 kbps ou melhor VBR), capa e metadados embutidos. |
 | 📃 | **Playlists e canais** | Seleção item a item, filtro por título, "selecionar todos / nenhum / inverter", detecção de Mixes automáticos, até 1000 vídeos. |
-| ✂️ | **Recorte por tempo** | Início e fim em vídeo ou áudio, com corte exato (vídeo recodificado em H.264, áudio copiado sem perda). |
+| ✂️ | **Recorte por tempo** | Início e fim em vídeo ou áudio, com corte exato (vídeo recodificado em H.264, áudio recodificado no formato escolhido; original usa corte aproximado por pacotes). |
 | 🎧 | **Separação com IA** | **Voz + Playback** (BS-Roformer), **Banda** (4 faixas, htdemucs_ft) ou **Completo** (6 faixas, htdemucs_6s), na GPU. Fonte: vídeo do YouTube ou arquivo local de até 1 GB. |
 | 🎛 | **Mixer e mixagem** | Ouça as faixas em sincronia, silencie (M), isole (S), ajuste volumes, compare com o original e **renderize a mixagem** em WAV, FLAC ou MP3 com limitador. |
 | 📥 | **Fila em duas pistas** | Downloads e processamento na GPU rodam em paralelo. Cole outro link enquanto o anterior roda; a barra de tarefas mostra tudo em qualquer etapa. |
@@ -69,7 +69,7 @@ stemtube-studio/
     ├── intro.md · outro.md   ← células de texto do notebook
     ├── build_notebook.py     ← gera o .ipynb a partir dos arquivos acima
     ├── dev_server.py         ← servidor local para testar a interface fora do Colab
-    └── tests/test_backend.py ← 59 verificações do backend em modo simulado
+    └── tests/test_backend.py ← 75 verificações do backend em modo simulado
 ```
 
 ### Desenvolvimento

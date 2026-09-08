@@ -7,7 +7,7 @@ O StemTube Studio reúne, em um único aplicativo, as ferramentas **StemLab** (s
 | Recurso | Como funciona |
 |---|---|
 | Downloads | `yt-dlp` com runtime JavaScript (deno), `ffmpeg` para converter, empacotar em MP4 e embutir capa/metadados |
-| Recorte por tempo | O arquivo completo é baixado e cortado com `ffmpeg`; vídeo é recodificado (H.264) para o corte ser exato, áudio é copiado sem perda |
+| Recorte por tempo | O arquivo completo é baixado e cortado com `ffmpeg`; vídeo é recodificado (H.264) para o corte ser exato, áudio é recodificado no formato escolhido; original usa corte aproximado por pacotes |
 | Separação de faixas | [audio-separator](https://github.com/nomadkaraoke/python-audio-separator) com os modelos `model_bs_roformer_ep_317_sdr_12.9755.ckpt` (voz), `htdemucs_ft.yaml` (4 faixas) e `htdemucs_6s.yaml` (6 faixas), na GPU quando disponível |
 | Mixer | Prévias MP3 de cada faixa tocadas em sincronia no navegador; a mixagem final é renderizada pelo `ffmpeg` a partir das faixas completas, com limitador de picos |
 | Fila | Duas pistas independentes: downloads e processamento na GPU rodam em paralelo, um item por vez em cada pista |
