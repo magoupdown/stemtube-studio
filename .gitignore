@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+src/stemtube_test/
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
