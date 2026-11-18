@@ -9,10 +9,10 @@ Cole um **link do YouTube** (vídeo, Shorts, playlist ou canal) ou envie um **ar
 
 Tudo com prévia antes de começar, fila com progresso em tempo real, ZIP de tudo e cópia opcional no Google Drive.
 
-**Como usar (2 cliques):**
+**Como abrir o Studio**
 
 1. Rode a célula **1️⃣** — faça login na conta Google (obrigatório). Ela instala as dependências. Desmarque `instalar_separador_ia` se quiser só os downloads.
-2. Rode a célula **2️⃣** — o aplicativo aparece logo abaixo. Cole o link ou envie o arquivo e siga as etapas.
+2. Rode a célula **2️⃣** — clique em **Abrir StemTube Studio em nova aba**. Mantenha o notebook aberto e conectado enquanto usa o Studio. Cole o link ou envie o arquivo e siga as etapas.
 
 > 💡 Ou use **Ambiente de execução ▸ Executar tudo** (`Ctrl+F9`).
 

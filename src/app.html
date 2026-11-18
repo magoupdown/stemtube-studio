@@ -1,5 +1,3 @@
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   #stemtube, #stemtube * { box-sizing: border-box; }
   #stemtube {
@@ -380,6 +378,26 @@
   #stemtube .studio-preview.is-playing { border-color:#b393ff; }
   #stemtube .preview-retry[hidden] { display:none; }
 
+
+  body.studio-window { margin:0; }
+  .studio-window #stemtube { width:100%; max-width:none; min-height:100vh; min-height:100dvh; border-radius:0; display:flex; flex-direction:column; }
+  .studio-window #stemtube main { flex:1; width:min(100%, 1440px); margin-inline:auto; min-width:0; }
+  #stemtube .modal { max-height:calc(100dvh - 40px); overflow:auto; }
+  @media (max-width:600px) {
+    #stemtube .status { flex-wrap:wrap; }
+    #stemtube .tabs { max-width:100%; }
+    #stemtube .tab { flex:1; padding:10px; justify-content:center; }
+    #stemtube .btn, #stemtube .tab, #stemtube .icon-btn, #stemtube .mbtn { min-height:44px; }
+    #stemtube .icon-btn, #stemtube .mbtn { min-width:44px; }
+    #stemtube .stem, #stemtube .item { grid-template-columns:auto minmax(0,1fr); }
+    #stemtube .job { grid-template-columns:auto minmax(0,1fr); }
+    #stemtube .job > :last-child { grid-column:2; }
+    #stemtube input[type=text], #stemtube textarea, #stemtube select { font-size:16px; }
+    #stemtube .actions .btn { max-width:100%; white-space:normal; }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    #stemtube *, #stemtube *::after { animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
+  }
 </style>
 
 <div id="stemtube" data-theme="dark">
@@ -423,7 +441,7 @@
         <div class="tabs"><button class="tab sel" data-src="yt">▶ Link do YouTube</button><button class="tab" data-src="file">📁 Arquivo do computador</button></div>
         <div class="src-pane on" data-pane="yt">
           <div class="input-row">
-            <div class="field"><svg viewBox="0 0 24 24"><path d="M3.9 12a5 5 0 0 1 5-5h4v2h-4a3 3 0 0 0 0 6h4v2h-4a5 5 0 0 1-5-5zm7.1-1h2v2h-2v-2zm4-4h4a5 5 0 1 1 0 10h-4v-2h4a3 3 0 1 0 0-6h-4V7z"/></svg><input type="text" id="urlInput" placeholder="https://www.youtube.com/watch?v=…  ou  …/playlist?list=…" autocomplete="off" spellcheck="false"></div>
+            <div class="field"><svg viewBox="0 0 24 24"><path d="M3.9 12a5 5 0 0 1 5-5h4v2h-4a3 3 0 0 0 0 6h4v2h-4a5 5 0 0 1-5-5zm7.1-1h2v2h-2v-2zm4-4h4a5 5 0 1 1 0 10h-4v-2h4a3 3 0 1 0 0-6h-4V7z"/></svg><input type="text" id="urlInput" aria-label="Link do YouTube" placeholder="https://www.youtube.com/watch?v=…  ou  …/playlist?list=…" autocomplete="off" spellcheck="false"></div>
             <button class="btn" id="pasteBtn" title="Colar da área de transferência">📋 Colar</button>
             <button class="btn primary" id="analyzeBtn">Analisar →</button>
           </div>
@@ -580,7 +598,8 @@
   const root = document.getElementById('stemtube');
   const $ = (sel, el=root) => el.querySelector(sel);
   const $$ = (sel, el=root) => Array.from(el.querySelectorAll(sel));
-  const IS_COLAB = !!(window.google && google.colab && google.colab.kernel);
+  const session = window.stemTubeSession;
+  const IS_COLAB = !!session || !!(window.google && google.colab && google.colab.kernel);
 
   function showFatal(msg){
     let box = document.getElementById('stFatal');
@@ -626,20 +645,21 @@
       if(window.__mockApi) return window.__mockApi(name, ...args);
       throw new Error('Este app precisa ser executado dentro do Google Colab.');
     }
-    const r = await google.colab.kernel.invokeFunction('stemtube.' + name, args, {});
+    if(session && !session.connected()) throw new Error('A conexão com a célula foi encerrada. Reabra o Studio pela célula 2.');
+    const r = session ? await session.invoke(name, args) : await google.colab.kernel.invokeFunction('stemtube.' + name, args, {});
     let d = r && r.data && (r.data['application/json'] ?? r.data['text/plain']);
     if(typeof d === 'string'){ try { d = JSON.parse(d); } catch(e){ d = {ok:false, error:d}; } }
     return d || {ok:false, error:'Sem resposta do Python. Execute a célula do app novamente.'};
   }
   let _rzT = null;
   function resize(){
-    if(!IS_COLAB) return;
+    if(!IS_COLAB || session) return;
     clearTimeout(_rzT);
     _rzT = setTimeout(() => { try { const o = google.colab.output; if(o && typeof o.resizeIframeToContent === 'function') o.resizeIframeToContent(); } catch(e){} }, 60);
   }
   async function fileUrl(rel){
     const path = rel.split('/').map(encodeURIComponent).join('/');
-    if(IS_COLAB){ const base = await google.colab.kernel.proxyPort(S.cfg.port, {cache:true}); return base.replace(/\/?$/, '/') + path; }
+    if(IS_COLAB){ const base = session ? await session.mediaBase(S.cfg.port) : await google.colab.kernel.proxyPort(S.cfg.port, {cache:true}); return base.replace(/\/?$/, '/') + path; }
     return 'http://127.0.0.1:' + S.cfg.port + '/' + path;
   }
   async function downloadRel(rel, btn){
@@ -1160,8 +1180,10 @@
   }
   async function poll(){
     clearTimeout(S.timer);
-    if(!S.jobId) return;
-    let j; try { j = await api('job_status', S.jobId); } catch(e){ S.timer = setTimeout(poll, 2500); return; }
+    const requested = S.jobId;
+    if(!requested) return;
+    let j; try { j = await api('job_status', requested); } catch(e){ if(S.jobId !== requested) return; S.timer = setTimeout(poll, 2500); return; }
+    if(S.jobId !== requested) return;
     if(!j.ok){ toast(j.error, 'err'); return; }
     if(j.status === 'queued' || j.status === 'running'){ if(S.step === 4 && S.jobId === j.id) renderProc(j); S.timer = setTimeout(poll, 1200); return; }
     if(j.status === 'done' && S.step === 4){
@@ -1206,12 +1228,17 @@
     const r = await api('start_job', { kind:'download', items, mode: j.mode, height: j.height, audio_format: j.audio_format, audio_quality: j.audio_quality, embed_meta: j.embed_meta, save_drive: j.save_drive, folder: j.folder, trim: items.length === 1 ? j.trim : null, title: j.title + ' (nova tentativa)' });
     if(!r.ok) return toast(r.error, 'err'); S.jobId = r.job_id; renderProc(null); goto(4); poll(); startQueuePolling();
   }
+  function driveSummary(job, files){
+    if(!job.save_drive || !files.length) return '';
+    const saved = files.filter(file => file.drive_path).length;
+    return ` · Drive: ${saved} de ${files.length} arquivo(s) salvo(s)`;
+  }
   function renderDownloadResult(j){
     const card = $('#resultCard');
     const items = j.items || [], done = items.filter(i=>i.status==='done'), errs = items.filter(i=>i.status==='error'), canc = items.filter(i=>i.status==='cancelled');
     const kind = errs.length && !done.length ? 'err' : (errs.length || canc.length ? 'warn' : 'ok');
     const title = j.status==='cancelled' ? 'Download cancelado' : (kind==='ok' ? (j.mode === 'video' ? 'Vídeo pronto!' : 'Áudio pronto!') : (kind==='warn' ? 'Concluído com avisos' : 'Nenhum arquivo foi baixado'));
-    card.innerHTML = `<div class="result-head"><div class="big ${kind==='ok'?'':kind}">${kind==='ok'?'🎉':(kind==='warn'?'⚠️':'❌')}</div><div><h2 style="margin:0">${title}</h2><p class="sub" style="margin:4px 0 0"><b>${esc(j.title||'')}</b> · ${esc(j.label||'')}${j.elapsed ? ` · levou ${fmtEta(j.elapsed)}` : ''}<br>${done.length} ${done.length===1?'arquivo pronto':'arquivos prontos'}${errs.length?` · ${errs.length} com erro`:''}${canc.length?` · ${canc.length} cancelados`:''}${j.save_drive && done.length ? ' · cópias salvas em Meu Drive / StemTube / Downloads' : ''}</p></div></div>
+    card.innerHTML = `<div class="result-head"><div class="big ${kind==='ok'?'':kind}">${kind==='ok'?'🎉':(kind==='warn'?'⚠️':'❌')}</div><div><h2 style="margin:0">${title}</h2><p class="sub" style="margin:4px 0 0"><b>${esc(j.title||'')}</b> · ${esc(j.label||'')}${j.elapsed ? ` · levou ${fmtEta(j.elapsed)}` : ''}<br>${done.length} ${done.length===1?'arquivo pronto':'arquivos prontos'}${errs.length?` · ${errs.length} com erro`:''}${canc.length?` · ${canc.length} cancelados`:''}${driveSummary(j, done)}</p></div></div>
       ${done.length ? `<div class="note info" style="margin-top:14px">Clique em <b>Baixar</b> para salvar cada arquivo no seu computador${done.length>1?', ou use <b>Baixar tudo (.zip)</b>':''}. Os arquivos ficam neste servidor só enquanto a sessão do Colab estiver ativa.</div>` : ''}
       ${j.warning ? `<div class="note warn">${esc(j.warning)}</div>` : ''}
       <div class="jobs">${items.map(itemJobRow).join('')}</div>${previewMarkup(j.files || [], true)}`;
@@ -1228,7 +1255,7 @@
     const card = $('#resultCard');
     const files = j.files || [];
     const sep = j.kind === 'separate';
-    card.innerHTML = `<div class="result-head"><div class="big">🎉</div><div><h2 style="margin:0">${sep ? 'Faixas prontas!' : 'Mixagem pronta!'}</h2><p class="sub" style="margin:4px 0 0"><b>${esc(j.title||'')}</b> · ${esc(j.label||'')}${j.elapsed ? ` · levou ${fmtEta(j.elapsed)}` : ''}${j.save_drive && files.some(f=>f.drive_path) ? ' · cópias salvas no Drive' : ''}</p></div></div>
+    card.innerHTML = `<div class="result-head"><div class="big">🎉</div><div><h2 style="margin:0">${sep ? 'Faixas prontas!' : 'Mixagem pronta!'}</h2><p class="sub" style="margin:4px 0 0"><b>${esc(j.title||'')}</b> · ${esc(j.label||'')}${j.elapsed ? ` · levou ${fmtEta(j.elapsed)}` : ''}${driveSummary(j, files)}</p></div></div>
       ${j.warning ? `<div class="note warn">${esc(j.warning)}</div>` : ''}
       ${sep ? `<div class="note info" style="margin-top:16px">Ouça o resultado no <b>mixer</b>: silencie (M) ou isole (S) cada faixa e ajuste o volume. Baixe as faixas separadas ou use <b>Renderizar mixagem</b> para juntar as faixas audíveis em um único áudio. A faixa Original serve apenas para comparação e nunca entra na mixagem.</div>
       <div class="transport" style="margin-top:14px"><button class="playbtn" id="mxPlay" title="Tocar / pausar">▶</button><div><input type="range" class="seek" id="mxSeek" min="0" max="1000" value="0"><div class="row" style="justify-content:space-between;margin-top:4px"><span class="time" id="mxCur">0:00</span><span class="time" id="mxDur">${fmtDur(j.duration)}</span></div></div><span class="badge" id="mxState">carregando…</span></div>` : ''}
@@ -1451,8 +1478,11 @@
     resize();
   }
   $('#queueList').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if(b) viewJob(b.dataset.view); });
-  async function viewJob(id){ S.jobId = id; let j; try { j = await api('job_status', id); } catch(e){ return; } if(!j.ok) return toast(j.error, 'err'); if(j.status === 'queued' || j.status === 'running'){ goto(4); renderProc(j); poll(); } else { goto(5); renderResult(j); } pollQueue(); }
+  async function viewJob(id){ S.jobId = id; let j; try { j = await api('job_status', id); } catch(e){ return; } if(S.jobId !== id) return; if(!j.ok) return toast(j.error, 'err'); if(j.status === 'queued' || j.status === 'running'){ goto(4); renderProc(j); poll(); } else { goto(5); renderResult(j); } pollQueue(); }
 
+  if(session) window.addEventListener('pageshow', () => { if(!session.connected()) showFatal('Reabra o Studio pela célula 2.'); });
   bootstrap().catch(e => { toast('Erro ao iniciar: ' + e.message, 'err', 8000); showFatal('Falha ao chamar o Python (stemtube.bootstrap). Verifique se a célula 2 terminou sem erro.\n' + (e.stack || e.message)); });
 })();
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">

@@ -3,7 +3,7 @@
 [![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/magoupdown/stemtube-studio/blob/main/StemTube.ipynb)
 ![versão](https://img.shields.io/badge/vers%C3%A3o-1.0.0-7c5cff)
 ![licença](https://img.shields.io/badge/licen%C3%A7a-MIT-22d3ee)
-![testes](https://img.shields.io/badge/testes%20locais-87%20ok-34d399)
+![testes](https://img.shields.io/badge/testes%20locais-90%20ok-34d399)
 
 **YouTube, áudio e inteligência artificial em um só aplicativo, dentro do Google Colab.**
 Baixe vídeos e playlists em MP4 ou áudio, recorte um trecho, separe voz e instrumentos com IA, ouça no mixer e renderize sua própria mixagem — tudo com uma interface de página web, prévia antes de começar e fila com progresso em tempo real.
@@ -35,7 +35,7 @@ Downloads, recortes, faixas e mixagens têm prévias individuais com reproduçã
 
 1. Abra o notebook pelo botão acima. Ele solicita **GPU T4** (a disponibilidade depende do Colab). Downloads funcionam com ou sem GPU.
 2. Rode a célula **1️⃣** e faça login na conta Google. Deixe `conectar_google_drive` marcado para salvar cookies e arquivos no Drive. Desmarque `instalar_separador_ia` se quiser só os downloads (instalação em ~30 s em vez de 1–3 min).
-3. Rode a célula **2️⃣**. O aplicativo aparece logo abaixo.
+3. Rode a célula **2️⃣**. Clique em **Abrir StemTube Studio em nova aba**. Mantenha a aba do notebook aberta e conectada. Se o navegador bloquear a abertura, permita pop-ups ou desmarque `abrir_em_nova_aba` e execute a célula 2 novamente.
 4. **Fonte**: cole um link (vídeo, Shorts, playlist ou canal) ou envie um arquivo. **Prévia**: confira título, canal, duração e, em playlists, escolha os itens. **Opções**: escolha entre vídeo MP4, só áudio ou separar faixas, ajuste qualidade, recorte e destino. **Processar** e **Resultado**: acompanhe o progresso, baixe, ouça no mixer e renderize mixagens.
 
 Na primeira separação de cada modo, o modelo de IA é baixado uma vez por sessão. O modelo de voz já começa a baixar em segundo plano assim que o app abre.
@@ -65,6 +65,7 @@ stemtube-studio/
 ├── StemTube.ipynb            ← o notebook pronto para o Colab (gerado a partir de src/)
 ├── README.md · CHANGELOG.md · LICENSE
 └── src/
+    ├── launcher.html         ← abertura em nova aba e conexão com a célula
     ├── backend.py            ← funções Python: yt-dlp, cookies, upload, downloads, recorte,
     │                            audio-separator, mixagem, fila em duas pistas, servidor de prévias
     ├── app.html              ← interface (HTML/CSS/JS) que chama o Python pela ponte do Colab
@@ -73,7 +74,9 @@ stemtube-studio/
     ├── intro.md · outro.md   ← células de texto do notebook
     ├── build_notebook.py     ← gera o .ipynb a partir dos arquivos acima
     ├── dev_server.py         ← servidor local para testar a interface fora do Colab
-    └── tests/test_backend.py ← 87 verificações do backend em modo simulado
+    └── tests/
+        ├── test_backend.py   ← 90 verificações do backend
+        └── test_window.py    ← nova aba e fluxo responsivo em Chromium
 ```
 
 ### Desenvolvimento

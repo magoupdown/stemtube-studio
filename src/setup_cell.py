@@ -8,6 +8,7 @@ instalar_separador_ia = True  #@param {type:"boolean"}
 import os, sys, shutil, subprocess, json, time
 if globals().get('_STEMTUBE_STATE'):
     raise RuntimeError('O ambiente já foi preparado. Para atualizar dependências, reinicie a sessão. Para reabrir a interface, execute somente a célula 2.')
+_STEMTUBE_SETUP_READY = False
 from IPython.display import HTML, display, clear_output
 
 def _box(msg, kind='info'):
@@ -91,6 +92,7 @@ if instalar_separador_ia:
     if _cli_check.returncode or '--custom_output_names' not in _cli_check.stdout:
         raise RuntimeError('O comando audio-separator não está operacional ou é incompatível. Reinicie a sessão.')
 
+_STEMTUBE_SETUP_READY = True
 clear_output()
 _box(f'✅ <b>Login OK</b> — {USER_EMAIL}', 'ok')
 _box(('✅ <b>Google Drive conectado</b> — cookies, downloads, faixas e mixagens podem ser salvos em <code>Meu Drive/StemTube</code>' if DRIVE_OK

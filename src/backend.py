@@ -14,6 +14,8 @@
 import os, re, json, time, uuid, shutil, threading, socketserver, http.server
 import urllib.parse, traceback, queue, subprocess, base64, sys, math, tempfile
 
+import zipfile
+
 import yt_dlp
 from IPython.display import JSON
 
@@ -888,12 +890,13 @@ def _parse_trim(trim, items):
     if len(items) != 1:
         raise ValueError('O recorte por tempo só funciona com um vídeo por vez.')
     try:
-        start = max(0.0, float(trim.get('start') or 0))
+        start = float(trim.get('start') or 0)
         end = float(trim.get('end'))
     except Exception:
         raise ValueError('Tempos do recorte inválidos. Use o formato mm:ss ou hh:mm:ss.')
     if not math.isfinite(start) or not math.isfinite(end):
         raise ValueError('Tempos do recorte inválidos.')
+    start = max(0.0, start)
     if end <= start:
         raise ValueError('O fim do trecho precisa ser maior que o início.')
     if end - start < 1:
@@ -1401,13 +1404,16 @@ def cb_zip_job(job_id):
         job = STATE['jobs'].get(job_id)
         if not job or job.get('status') not in ('done', 'cancelled') or not job.get('files'):
             return JSON({'ok': False, 'error': 'Nenhum arquivo para compactar.'})
-        src = os.path.join(OUT_DIR, job_id)
         name = _safe_name(job.get('folder') or job.get('title') or 'arquivos', 60)
-        tmp = os.path.join(OUT_DIR, f'{job_id}_zipsrc'); shutil.rmtree(tmp, ignore_errors=True); os.makedirs(tmp)
-        for f in job['files']:
-            shutil.copy2(os.path.join(src, f['file']), os.path.join(tmp, f['file']))
-        zp = shutil.make_archive(os.path.join(OUT_DIR, f'{job_id}_{re.sub(r"[^\w.-]+", "_", name)}'), 'zip', tmp)
-        shutil.rmtree(tmp, ignore_errors=True)
+        slug = re.sub(r'[^\w.-]+', '_', name)
+        zp = os.path.join(OUT_DIR, f'{job_id}_{slug}.zip')
+        # Escreve uma vez e publica só o ZIP completo, inclusive em tentativas simultâneas.
+        with tempfile.TemporaryDirectory(dir=OUT_DIR) as staging:
+            partial = os.path.join(staging, 'result.zip')
+            with zipfile.ZipFile(partial, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+                for item in job['files']:
+                    archive.write(_output_path(item['rel']), arcname=item['file'])
+            os.replace(partial, zp)
         sub = {'download': 'Downloads', 'separate': 'Faixas', 'mix': 'Mixagens'}[job['kind']]
         drive = _copy_to_drive(job, zp, sub) if job.get('save_drive') else None
         return JSON({'ok': True, 'rel': os.path.basename(zp), 'size_label': _fmt_size(os.path.getsize(zp)), 'drive_path': drive})
@@ -1548,7 +1554,7 @@ def _start_file_server():
     class _Srv(socketserver.ThreadingTCPServer):
         allow_reuse_address = True; daemon_threads = True
     try:
-        srv = _Srv(('0.0.0.0', FILE_PORT), _FileHandler)
+        srv = _Srv(('127.0.0.1', FILE_PORT), _FileHandler)
     except OSError as e:
         raise RuntimeError('A porta de prévias está ocupada. Reinicie a sessão e execute as células 1 e 2.') from e
     STATE['server'] = srv

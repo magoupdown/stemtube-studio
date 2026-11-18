@@ -9,6 +9,10 @@ Uso:  python src/tests/test_backend.py
 """
 import os, sys, time, json, base64, subprocess, tempfile, urllib.request, urllib.parse, urllib.error
 
+from pathlib import Path
+from unittest.mock import patch
+from zipfile import ZipFile
+
 os.environ['STEMTUBE_MOCK'] = '1'
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.dirname(HERE)
@@ -114,6 +118,15 @@ z = ns['cb_zip_job'](job['job_id']).data
 check(z['ok'] and z['rel'].endswith('.zip'), 'ZIP das faixas')
 check(not ns['cb_zip_job']('nope').data['ok'], 'ZIP de tarefa inexistente rejeitado')
 
+zip_path = Path(ns['OUT_DIR'], z['rel'])
+with ZipFile(zip_path) as packed:
+    check(packed.namelist() == [f['file'] for f in j['files']] and packed.testzip() is None,
+          'ZIP íntegro com apenas as faixas finais')
+previous = zip_path.read_bytes()
+with patch.object(ZipFile, 'write', side_effect=OSError('quota')):
+    check(not ns['cb_zip_job'](job['job_id']).data['ok'] and zip_path.read_bytes() == previous,
+          'ZIP anterior preservado depois de uma falha')
+
 print('5) tarefas de download (validação sem rede)')
 check(not ns['cb_start_job']({'kind': 'download', 'items': []}).data['ok'], 'sem itens')
 check(not ns['cb_start_job']({'kind': 'download', 'items': [{'id': 'bad'}]}).data['ok'], 'id inválido')
@@ -122,6 +135,8 @@ check(not ns['cb_start_job']({'kind': 'download', 'items': [{'id': 'dQw4w9WgXcQ'
 check(not ns['cb_start_job']({'kind': 'download', 'items': [{'id': 'dQw4w9WgXcQ'}], 'mode': 'audio', 'audio_format': 'exe'}).data['ok'], 'formato inválido')
 check(not ns['cb_start_job']({'kind': 'download', 'items': [{'id': 'dQw4w9WgXcQ'}, {'id': 'dQw4w9WgXcR'}], 'trim': {'start': 0, 'end': 5}}).data['ok'], 'recorte com 2 itens rejeitado')
 check(not ns['cb_start_job']({'kind': 'download', 'items': [{'id': 'dQw4w9WgXcQ'}], 'trim': {'start': 5, 'end': 5.5}}).data['ok'], 'trecho curto rejeitado')
+check(not ns['cb_start_job']({'kind':'download','items':[{'id':'dQw4w9WgXcQ'}],
+                              'trim':{'start':float('nan'),'end':5}}).data['ok'], 'início NaN rejeitado')
 nd = ns['_new_download_job']({'items': [{'id': 'dQw4w9WgXcQ', 'title': 'T'}], 'mode': 'audio', 'audio_format': 'mp3', 'audio_quality': '192', 'trim': {'start': 10, 'end': 70}})
 check(nd['label'] == 'Áudio · MP3 192 kbps · trecho 0:10–1:10' and nd['trim']['end'] == 70, 'rótulo e recorte de download')
 nd = ns['_new_download_job']({'items': [{'id': 'dQw4w9WgXcQ'}, {'id': 'dQw4w9WgXcR'}], 'mode': 'video', 'height': 1080})
@@ -157,7 +172,6 @@ check(b64['ok'] and b64['mime'] == 'audio/mpeg' and len(b64['b64']) > 100, 'pré
 check(not ns['cb_preview_b64'](rel).data['ok'], 'arquivo que não é prévia recusado no plano B')
 
 print('7) regressões: downloads, recortes e Drive')
-from unittest.mock import patch
 payload = {'items': [{'id': 'dQw4w9WgXcQ'}, {'id': 'dQw4w9WgXcQ'}], 'mode': 'audio', 'audio_format': 'wav'}
 clean = ns['_new_download_job'](payload)
 check(len(clean['items']) == 1, 'seleção duplicada não sobrescreve o mesmo resultado')

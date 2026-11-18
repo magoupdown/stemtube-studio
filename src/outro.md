@@ -18,7 +18,7 @@ O StemTube Studio reúne, em um único aplicativo, as ferramentas **StemLab** (s
 - **“Confirme que você não é um robô” / vídeo privado / +18** → carregue os cookies da sua conta na seção *Cookies* e tente de novo.
 - **Sem GPU** → *Ambiente de execução ▸ Alterar o tipo de ambiente de execução ▸ T4 GPU*, depois rode as células 1 e 2 novamente. Downloads não precisam de GPU.
 - **A memória da GPU estourou** → use uma música mais curta (limite de 25 min) ou o modo *Voz + Playback*.
-- **A interface não aparece** → rode a célula 1 até o fim e só então a célula 2. Se a sessão foi reiniciada, repita as duas.
+- **A nova aba não abriu**: clique no botão da célula 2. Se o navegador bloquear pop-ups, permita a abertura ou desmarque `abrir_em_nova_aba` e execute a célula 2 novamente. Se a sessão expirou, repita as células 1 e 2. Para voltar após fechar ou atualizar a aba do Studio, use novamente o botão do notebook.
 - **Mixes automáticos do YouTube (list=RD…)** não podem ser listados fora do player: baixe o vídeo ou salve os itens em uma playlist sua.
 
 ### Limites e observações
