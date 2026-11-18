@@ -1,19 +1,10 @@
-"""Testes locais do backend do StemTube Studio (sem Colab, sem YouTube, sem GPU).
-
-Executa o backend em modo simulado (STEMTUBE_MOCK=1) e verifica: análise de links,
-cookies, upload em pedaços, separação simulada, mixagem, ZIP, validação de tarefas de
-download, servidor de arquivos (Range e bloqueio de travessia) e limpeza.
-
-Requer: python, ffmpeg/ffprobe no PATH, yt-dlp e ipython instalados.
-Uso:  python src/tests/test_backend.py
-"""
+"""Testes locais de downloads, conversão, prévias e fila."""
 import os, sys, time, json, base64, subprocess, tempfile, urllib.request, urllib.parse, urllib.error
 
 from pathlib import Path
 from unittest.mock import patch
 from zipfile import ZipFile
 
-os.environ['STEMTUBE_MOCK'] = '1'
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.dirname(HERE)
 TEST_ROOT = os.path.join(tempfile.gettempdir(), 'stemtube_test').replace(os.sep, '/')
@@ -42,9 +33,7 @@ def wait_job(job_id, limit=120):
 
 print('1) bootstrap')
 b = ns['cb_bootstrap']().data
-check(b['ok'] and b['mock'] and b['separator'] and b['version'], 'bootstrap responde em modo simulado')
-check(set(b['modes']) == {'2stem', '4stem', '6stem'}, 'três modos de separação')
-
+check(b['ok'] and b['version'] and 'modes' not in b, 'inicialização do conversor')
 print('2) links do YouTube')
 P = ns['_parse_url']
 check(P('https://www.youtube.com/watch?v=dQw4w9WgXcQ')['video_id'] == 'dQw4w9WgXcQ', 'watch?v=')
@@ -80,7 +69,7 @@ check(not ns['cb_save_cookies']('texto qualquer').data['ok'], 'formato desconhec
 check(not ns['cb_save_cookies']('x' * (3 * 1024 * 1024)).data['ok'], 'limite de 2 MB')
 check(ns['cb_clear_cookies']().data['cookies'] == {'found': False}, 'remoção de cookies')
 
-print('4) upload + separação simulada + mixagem')
+print('4) upload e conversão')
 wav = os.path.join(TEST_ROOT, 'teste.wav')
 subprocess.run(['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3',
                 '-f', 'lavfi', '-i', 'sine=frequency=110:duration=3', '-filter_complex', 'amix=inputs=2', '-ac', '2', wav], check=True)
@@ -98,21 +87,18 @@ st2 = ns['cb_upload_start']('incompleto.wav', len(data)).data
 ns['cb_upload_chunk'](st2['upload_id'], base64.b64encode(data[:1000]).decode())
 check(not ns['cb_upload_finish'](st2['upload_id']).data['ok'], 'upload incompleto descartado')
 
-check(not ns['cb_start_job']({'kind': 'separate', 'source_id': 'nope', 'mode': '2stem'}).data['ok'], 'fonte inexistente rejeitada')
-check(not ns['cb_start_job']({'kind': 'separate', 'source_id': fin['source']['id'], 'mode': '9stem'}).data['ok'], 'modo inválido rejeitado')
-job = ns['cb_start_job']({'kind': 'separate', 'source_id': fin['source']['id'], 'mode': '4stem', 'out_format': 'mp3'}).data
-check(job['ok'], 'separação enfileirada')
+source_id = fin['source']['id']
+def local_job(mode, fmt, **options):
+    return ns['cb_start_job'](dict(kind='download', source_id=source_id, mode=mode, audio_format=fmt, **options)).data
+check(not local_job('video','mp3')['ok'], 'áudio sem imagem não oferece MP4')
+job = local_job('audio','mp3')
 j = wait_job(job['job_id'])
-check(j['status'] == 'done' and len(j['files']) == 4 and all(f['preview'] for f in j['files']), 'separação simulada gerou 4 faixas com prévias')
-check(j.get('original_preview') and all(s['status'] == 'done' for s in j['stages']), 'prévia do original e etapas concluídas')
-check(all(f['file'].endswith('.mp3') for f in j['files']), 'formato MP3 respeitado')
-
-check(not ns['cb_mix_job'](job['job_id'], [], 'wav').data['ok'], 'mixagem vazia rejeitada')
-check(not ns['cb_mix_job'](job['job_id'], [{'stem': 'Vocals', 'gain': 2}], 'wav').data['ok'], 'ganho fora da faixa rejeitado')
-mix = ns['cb_mix_job'](job['job_id'], [{'stem': 'Vocals', 'gain': 1}, {'stem': 'Bass', 'gain': 0.5}], 'flac').data
-check(mix['ok'], 'mixagem enfileirada')
-m = wait_job(mix['job_id'])
-check(m['status'] == 'done' and m['files'][0]['file'].endswith('.flac') and m['files'][0]['preview'], 'mixagem FLAC renderizada com prévia')
+check(j['status'] == 'done' and j['files'][0]['preview'], 'conversão MP3 com prévia')
+repeat = local_job('audio','flac',trim={'start':0.2,'end':2.2})
+result = wait_job(repeat['job_id'])
+check(result['status'] == 'done' and abs(ns['_ffprobe_duration'](ns['_output_path'](result['files'][0]['rel']))-2)<0.01,
+      'mesmo upload reutilizado para recorte FLAC de dois segundos')
+check(not ns['cb_start_job']({'kind':'separate','source_id':source_id}).data['ok'], 'ação descontinuada rejeitada')
 
 z = ns['cb_zip_job'](job['job_id']).data
 check(z['ok'] and z['rel'].endswith('.zip'), 'ZIP das faixas')
@@ -168,7 +154,7 @@ try:
 except urllib.error.HTTPError as e:
     check(e.code in (403, 404), 'listagem de pasta bloqueada')
 b64 = ns['cb_preview_b64'](j['files'][0]['preview']).data
-check(b64['ok'] and b64['mime'] == 'audio/mpeg' and len(b64['b64']) > 100, 'prévia em base64 (plano B do mixer)')
+check(b64['ok'] and b64['mime'] == 'audio/mpeg' and len(b64['b64']) > 100, 'prévia em base64 (reprodução alternativa)')
 check(not ns['cb_preview_b64'](rel).data['ok'], 'arquivo que não é prévia recusado no plano B')
 
 print('7) regressões: downloads, recortes e Drive')
@@ -274,6 +260,23 @@ class SuccessfulDownload:
         target = os.path.join(os.path.dirname(self.opts['outtmpl']), 'download' + ('.mp4' if video_mode else '.wav'))
         ns['shutil'].copy2(video_src if video_mode else wav, target)
         return {'filepath':target,'title':'Teste','duration':2 if video_mode else 3}
+with open(video_src, 'rb') as f:
+    video_bytes = f.read()
+upload = ns['cb_upload_start']('ensaio.mp4', len(video_bytes)).data['upload_id']
+ns['cb_upload_chunk'](upload, base64.b64encode(video_bytes).decode())
+video = ns['cb_upload_finish'](upload).data['source']
+check(video['height'] == 360 and video['audio_codec'] == 'aac', 'upload detecta imagem e áudio')
+for mode, fmt, expected in [('video','mp3','mp4'), ('audio','best','m4a'), ('audio','wav','wav')]:
+    task = ns['cb_start_job']({'kind':'download','source_id':video['id'],'mode':mode,'height':240,'audio_format':fmt}).data
+    result = wait_job(task['job_id'])
+    check(result['status']=='done' and result['files'][0]['file'].endswith('.'+expected), 'conversão local '+expected)
+    path = ns['_output_path'](result['files'][0]['rel'])
+    streams = json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-of','json',path]))['streams']
+    if mode == 'video':
+        check(any(v.get('height')==240 for v in streams), 'MP4 respeita resolução')
+    else:
+        check(all(v['codec_type']=='audio' for v in streams), 'extração contém apenas áudio')
+
 for video_mode in (False,True):
     dj = ns['_new_download_job']({'items':[{'id':'dQw4w9WgXcQ'}], 'mode':'video' if video_mode else 'audio','audio_format':'wav'})
     dj['id']='qa_video_download' if video_mode else 'qa_audio_download'
@@ -281,10 +284,10 @@ for video_mode in (False,True):
     check(bool(dj['files'][0]['preview']) and dj['files'][0]['preview_kind']==('video' if video_mode else 'audio'), 'download inclui prévia '+('de vídeo' if video_mode else 'de áudio'))
 
 print('9) cancelamento e limpeza')
-job2 = ns['cb_start_job']({'kind': 'separate', 'source_id': fin['source']['id'], 'mode': '6stem', 'out_format': 'wav'}).data
+job2 = local_job('audio', 'wav')
 ns['cb_cancel_job'](job2['job_id'])
 c = wait_job(job2['job_id'])
-check(c['status'] == 'cancelled', 'separação cancelada')
+check(c['status'] == 'cancelled', 'conversão cancelada')
 check(ns['cb_cleanup']().data['ok'] and not ns['cb_jobs_list']().data['jobs'], 'limpeza com fila ociosa')
 
 print(f'\nTODOS OS {passed} TESTES PASSARAM')

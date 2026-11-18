@@ -10,7 +10,7 @@ import tempfile
 from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
-os.environ['STEMTUBE_MOCK'] = '1'
+
 
 
 def render_output(context, external):
@@ -97,26 +97,54 @@ def run():
         app.locator('#fileInput').set_input_files(wav)
         app.locator('#toOptionsBtn').click()
         fit(app)
+        expect(app.locator('[data-action]')).to_have_count(1)
+        app.locator('[data-af=flac]').click()
         app.locator('#startBtn').click()
-        fit(app)
-        expect(app.locator('#mixBtn')).to_be_visible(timeout=60000)
-        fit(app)
-        expect(app.locator('#mxState')).to_have_text('pronto', timeout=30000)
-        app.locator('#mxPlay').click()
-        expect(app.locator('#mxState')).to_have_text('tocando')
-        app.locator('#mxPlay').click()
-        app.locator('[data-solo="1"]').click()
-        app.locator('#zipBtn').click()
-        expect(app.get_by_text('Download enviado ao navegador.')).to_be_visible()
-        assert downloads and downloads[-1].suffix == '.zip'
-        app.locator('#mixFormat').select_option('flac')
-        app.locator('#mixBtn').click()
-        expect(app.locator('#backStemsBtn')).to_be_visible(timeout=60000)
+        expect(app.locator('#resultCard [data-dl]')).to_be_visible(timeout=60000)
         fit(app)
         expect(app.locator('.preview-play')).to_be_enabled(timeout=30000)
-        app.locator('#stemList [data-dl]').first.click()
+        app.locator('#resultCard [data-dl]').first.click()
         expect(app.locator('.toast').filter(has_text='Download enviado ao navegador.').last).to_be_visible()
         assert downloads[-1].suffix == '.flac'
+        # A fonte de rede é substituída. A seleção, conversão de prévias e ZIP usam o fluxo real.
+        ids = ['dQw4w9WgXcQ', 'dQw4w9WgXcR']
+        class PlaylistFixture:
+            def __init__(self, opts):
+                self.opts = opts
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+            def extract_info(self, url, download):
+                if not download:
+                    return {'_type':'playlist', 'id':'PLteste', 'title':'Repertório',
+                            'entries':[{'id':v, 'title':'Aula '+v, 'duration':2} for v in ids]}
+                video_id = url[-11:]
+                target = Path(self.opts['outtmpl']).parent / (video_id + '.wav')
+                shutil.copyfile(wav, target)
+                return {'title':video_id, 'filepath':str(target), 'duration':2}
+
+        from unittest.mock import patch
+        with patch.object(ns['yt_dlp'], 'YoutubeDL', PlaylistFixture):
+            app.locator('#newBtn').click()
+            app.locator('[data-src=yt]').click()
+            app.locator('#urlInput').fill('https://www.youtube.com/playlist?list=PLteste')
+            app.locator('#analyzeBtn').click()
+            app.locator('#selNone').click()
+            expect(app.locator('#toOptionsBtn')).to_be_disabled()
+            app.locator('#selAll').click()
+            app.locator('#toOptionsBtn').click()
+            expect(app.locator('[data-action]')).to_have_count(2)
+            app.locator('[data-action=audio]').click()
+            app.locator('[data-af=wav]').click()
+            app.locator('#startBtn').click()
+            app.locator('#modal [data-r="1"]').click()
+            app.locator('#zipBtn').click(timeout=30000)
+            app.wait_for_function("document.querySelector('#zipBtn') && !document.querySelector('#zipBtn').disabled")
+            assert downloads[-1].suffix == '.zip'
         # Um arquivo local concluído com falha de cópia no Drive.
         ns['STATE']['jobs']['drive_test'] = {
             'id':'drive_test', 'created':1, 'kind':'download', 'status':'done', 'title':'Ensaio',
@@ -139,7 +167,7 @@ def run():
         assert not errors, errors
         browser.close()
         ns['STATE']['server'].shutdown()
-        print('Nova aba, cinco tamanhos, upload, fila, ZIP, mixagem FLAC e modo incorporado aprovados.')
+        print('Nova aba, cinco tamanhos, upload, fila, conversão FLAC e modo incorporado aprovados.')
 
 
 if __name__ == '__main__':

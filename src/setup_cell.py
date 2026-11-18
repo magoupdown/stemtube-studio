@@ -2,8 +2,6 @@
 #@markdown Clique no ▶ à esquerda. Uma janela do Google vai pedir autorização — isso é obrigatório para usar o app. A instalação leva de 1 a 3 minutos.
 conectar_google_drive = True  #@param {type:"boolean"}
 #@markdown *Com o Drive conectado, os cookies ficam salvos entre sessões e os arquivos podem ser copiados para `Meu Drive/StemTube`.*
-instalar_separador_ia = True  #@param {type:"boolean"}
-#@markdown *Desmarque para preparar só os downloads (mais rápido). A separação de faixas com IA precisa deste componente.*
 
 import os, sys, shutil, subprocess, json, time
 if globals().get('_STEMTUBE_STATE'):
@@ -45,22 +43,10 @@ if conectar_google_drive:
     except Exception as e:
         _box(f'Drive não conectado: {e}', 'warn')
 
-# ---------- 3. GPU ----------
-GPU_NAME = None
-try:
-    import torch
-    if torch.cuda.is_available():
-        GPU_NAME = torch.cuda.get_device_name(0)
-except Exception:
-    pass
-if instalar_separador_ia and not GPU_NAME:
-    _box('⚠️ <b>Nenhuma GPU nesta sessão.</b> Downloads funcionam normalmente, mas a separação de faixas vai ficar muito lenta. '
-         'Vá em <b>Ambiente de execução ▸ Alterar o tipo de ambiente de execução ▸ T4 GPU</b> e rode esta célula de novo.', 'warn')
-
 # ---------- 4. Dependências ----------
 _t0 = time.time()
-_pkgs = ['yt-dlp[default]'] + (['audio-separator[cpu]', 'audioread'] if instalar_separador_ia else [])
-_box('📦 Instalando ' + ('yt-dlp, o separador de faixas (audio-separator) e o runtime JavaScript… 1 a 3 min' if instalar_separador_ia else 'yt-dlp e o runtime JavaScript… ~30 s'))
+_pkgs = ['yt-dlp[default]']
+_box('Instalando yt-dlp e preparando as ferramentas de conversão…')
 _r = subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '-U'] + _pkgs, capture_output=True, text=True, timeout=900)
 if _r.returncode != 0:
     _box('Falha ao instalar as dependências. Copie a mensagem abaixo e envie para suporte.', 'err')
@@ -81,24 +67,10 @@ os.environ['PATH'] += ':/usr/local/bin'
 import importlib, yt_dlp
 importlib.reload(yt_dlp)
 
-SEP_VERSION = None
-if instalar_separador_ia:
-    try:
-        import audio_separator
-        SEP_VERSION = getattr(audio_separator, '__version__', None) or 'ok'
-    except Exception as e:
-        raise RuntimeError('O separador não pôde ser importado. Reinicie a sessão e execute novamente a preparação.') from e
-    _cli_check = subprocess.run(['audio-separator', '--help'], capture_output=True, text=True, timeout=120)
-    if _cli_check.returncode or '--custom_output_names' not in _cli_check.stdout:
-        raise RuntimeError('O comando audio-separator não está operacional ou é incompatível. Reinicie a sessão.')
-
 _STEMTUBE_SETUP_READY = True
 clear_output()
 _box(f'✅ <b>Login OK</b> — {USER_EMAIL}', 'ok')
-_box(('✅ <b>Google Drive conectado</b> — cookies, downloads, faixas e mixagens podem ser salvos em <code>Meu Drive/StemTube</code>' if DRIVE_OK
+_box(('✅ <b>Google Drive conectado</b> — cookies e downloads podem ser salvos em <code>Meu Drive/StemTube</code>' if DRIVE_OK
       else 'ℹ️ Google Drive <b>não conectado</b> — os cookies valerão só nesta sessão.'), 'ok' if DRIVE_OK else 'info')
-if instalar_separador_ia:
-    _box((f'⚡ GPU: <b>{GPU_NAME}</b>' if GPU_NAME else '⚠️ <b>Sem GPU</b> — ative em Ambiente de execução ▸ Alterar o tipo de ambiente de execução ▸ T4 GPU'), 'ok' if GPU_NAME else 'warn')
-_box(f'✅ yt-dlp <b>{yt_dlp.version.__version__}</b> · separador de IA {"<b>instalado</b>" if SEP_VERSION else "<b>não instalado</b> (só downloads)"} · '
-     f'ffmpeg {"OK" if shutil.which("ffmpeg") else "NÃO encontrado"} · deno {"OK" if shutil.which("deno") else "não instalado"} · {int(time.time()-_t0)} s', 'ok')
-_box('👉 Agora rode a célula <b>2️⃣ Abrir o aplicativo</b>.' + (' O modelo de IA de voz começa a ser baixado em segundo plano assim que o app abrir.' if SEP_VERSION else ''), 'info')
+_box(f'✅ yt-dlp {yt_dlp.version.__version__} · FFmpeg OK · {int(time.time()-_t0)} s', 'ok')
+_box('Agora execute a célula 2 para abrir o Studio.')

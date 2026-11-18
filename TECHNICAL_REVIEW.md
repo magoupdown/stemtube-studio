@@ -1,6 +1,12 @@
 # Revisão técnica do StemTube Studio
 
-## Revisão de 17 de novembro de 2026
+## Edição atual do conversor
+
+A interface de nova aba usa o mesmo lançador da revisão anterior. A instalação prepara yt-dlp, FFmpeg e o runtime JavaScript em CPU. A fila processa vídeos do YouTube e conversões de arquivos enviados. No envio local, ffprobe identifica as pistas e descarta imagens de capa ao verificar a presença de vídeo. FFmpeg faz a extração ou conversão e o upload permanece disponível para uma segunda operação.
+
+O teste de backend verifica MP4 em resolução reduzida, extração da pista AAC original de um vídeo, saída WAV sem imagem e recorte FLAC. O teste de navegador verifica a nova aba, os tamanhos de tela e o fluxo de upload até a obtenção do FLAC. YouTube, login Google e Drive reais dependem de validação em uma sessão do Colab.
+
+## Histórico da edição anterior de 17 de novembro de 2026
 
 Base examinada `355020a`. A revisão abrangeu preparação e limpeza da sessão, gerador e notebook distribuído, backend Python, interface, servidor de desenvolvimento e testes.
 

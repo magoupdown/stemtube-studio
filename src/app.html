@@ -301,40 +301,12 @@
   #stemtube .job .jr { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
   @media (max-width: 720px) { #stemtube .proc { grid-template-columns: 1fr; } #stemtube .cur { grid-template-columns: 1fr; } #stemtube .cur img { width:100%; max-height:200px; } }
 
-  /* ---- mixer ---- */
-  #stemtube .transport { display:grid; grid-template-columns: auto 1fr auto; gap:14px; align-items:center; padding:14px 16px; border-radius:14px; background:var(--panel-2); border:1px solid var(--line); }
-  #stemtube .playbtn { width:52px; height:52px; border-radius:50%; border:0; cursor:pointer; color:#fff; font-size:20px; display:grid; place-items:center; background: var(--grad-2); box-shadow: 0 10px 24px rgba(124,92,255,.4); transition: transform .15s; }
-  #stemtube .playbtn:hover { transform: scale(1.06); } #stemtube .playbtn:disabled { opacity:.5; }
-  #stemtube .seek { -webkit-appearance:none; appearance:none; width:100%; height:8px; border-radius:999px; background: linear-gradient(90deg, var(--a2) var(--p, 0%), var(--line) var(--p, 0%)); outline:none; cursor:pointer; }
-  #stemtube .seek::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow: 0 2px 8px rgba(0,0,0,.4); border:3px solid var(--a2); }
-  #stemtube .seek::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:#fff; border:3px solid var(--a2); }
-  #stemtube .time { font-variant-numeric: tabular-nums; font-size:12.5px; color:var(--muted); font-weight:600; white-space:nowrap; }
-  #stemtube .stems { display:grid; gap:10px; margin-top:14px; }
-  #stemtube .stem { display:grid; grid-template-columns: 44px 1fr auto; gap:12px; align-items:center; padding:12px 14px; border-radius:14px; background:var(--panel-2); border:1px solid var(--line); border-left:4px solid var(--c, var(--a2)); transition: all .2s; }
-  #stemtube .stem.muted { opacity:.55; }
-  #stemtube .stem .ico { width:44px; height:44px; border-radius:12px; display:grid; place-items:center; font-size:22px; background: color-mix(in srgb, var(--c) 22%, transparent); }
-  #stemtube .stem .nm { font-weight:800; font-size:14.5px; font-family:'Sora',sans-serif; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  #stemtube .stem .fi { font-size:12px; color:var(--muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #stemtube .stem .ctl { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
-  #stemtube .mbtn { width:34px; height:34px; border-radius:9px; border:1px solid var(--line); background:var(--panel-solid); color:var(--muted); font-weight:800; font-size:12px; cursor:pointer; transition: all .15s; }
-  #stemtube .mbtn.on.m { background:var(--err-soft); color:var(--err); border-color:transparent; }
-  #stemtube .mbtn.on.s { background:var(--warn-soft); color:var(--warn); border-color:transparent; }
-  #stemtube .vol { -webkit-appearance:none; appearance:none; width:110px; height:6px; border-radius:999px; background: linear-gradient(90deg, var(--c) var(--p, 100%), var(--line) var(--p, 100%)); outline:none; cursor:pointer; }
-  #stemtube .vol::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#fff; border:2px solid var(--c); }
-  #stemtube .vol::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:#fff; border:2px solid var(--c); }
-  #stemtube .meter { display:flex; gap:2px; align-items:flex-end; height:18px; width:36px; }
-  #stemtube .meter i { flex:1; background: var(--c); border-radius:2px; height:20%; opacity:.5; transition: height .1s; }
-  #stemtube .stem.playing .meter i { animation: stMeter .9s ease-in-out infinite; opacity:.9; }
-  #stemtube .stem.playing .meter i:nth-child(2) { animation-delay:-.3s; } #stemtube .stem.playing .meter i:nth-child(3) { animation-delay:-.6s; } #stemtube .stem.playing .meter i:nth-child(4) { animation-delay:-.15s; }
-  @keyframes stMeter { 0%,100% { height:25%; } 50% { height:95%; } }
-  @media (max-width: 640px) { #stemtube .stem { grid-template-columns: 40px 1fr; } #stemtube .stem .ctl { grid-column: 1 / -1; justify-content:flex-start; } #stemtube .vol { width:100%; flex:1; } }
   #stemtube .result-head { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
   #stemtube .result-head .big { width:62px; height:62px; border-radius:18px; display:grid; place-items:center; font-size:30px; background: var(--grad-2); box-shadow: 0 10px 26px rgba(124,92,255,.4); animation: stPop .5s cubic-bezier(.2,1.4,.4,1); }
   #stemtube .result-head .big.err { background: linear-gradient(135deg, var(--err), #fb923c); } #stemtube .result-head .big.warn { background: linear-gradient(135deg, var(--warn), #fb923c); }
   @keyframes stPop { from { transform: scale(.4); opacity:0; } to { transform: scale(1); opacity:1; } }
   #stemtube .confetti { position:absolute; width:8px; height:8px; border-radius:2px; top:-10px; animation: stConf 1.8s ease-out forwards; pointer-events:none; }
   @keyframes stConf { to { transform: translateY(420px) rotate(540deg); opacity:0; } }
-  #stemtube audio.mixprev { width:100%; margin-top:14px; border-radius:12px; }
 
   /* ---- rodapé, toasts, modal ---- */
   #stemtube footer { display:flex; gap:12px; flex-wrap:wrap; justify-content:space-between; align-items:center; padding:14px 22px; border-top:1px solid var(--line); font-size:12px; color:var(--muted-2); }
@@ -387,9 +359,9 @@
     #stemtube .status { flex-wrap:wrap; }
     #stemtube .tabs { max-width:100%; }
     #stemtube .tab { flex:1; padding:10px; justify-content:center; }
-    #stemtube .btn, #stemtube .tab, #stemtube .icon-btn, #stemtube .mbtn { min-height:44px; }
-    #stemtube .icon-btn, #stemtube .mbtn { min-width:44px; }
-    #stemtube .stem, #stemtube .item { grid-template-columns:auto minmax(0,1fr); }
+    #stemtube .btn, #stemtube .tab, #stemtube .icon-btn { min-height:44px; }
+    #stemtube .icon-btn { min-width:44px; }
+    #stemtube .item { grid-template-columns:auto minmax(0,1fr); }
     #stemtube .job { grid-template-columns:auto minmax(0,1fr); }
     #stemtube .job > :last-child { grid-column:2; }
     #stemtube input[type=text], #stemtube textarea, #stemtube select { font-size:16px; }
@@ -407,10 +379,9 @@
   <header class="topbar">
     <div class="brand">
       <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4M6.5 7v10M10 4v16"/><path d="M14 7.5v9l7-4.5z" fill="#fff" stroke="none"/></svg></div>
-      <div><h1>Stem<span>Tube</span> <span class="ver" id="verBadge">Studio</span></h1><p>Baixe, recorte, separe e mixe áudio e vídeo do YouTube</p></div>
+      <div><h1>Stem<span>Tube</span> <span class="ver" id="verBadge">Studio</span></h1><p>Extração de áudio e conversão de vídeo</p></div>
     </div>
     <div class="status">
-      <div class="chip" id="chipGpu"><i class="dot"></i><span>Verificando GPU…</span></div>
       <div class="chip clickable" id="chipCookies" title="Cookies da sua conta"><i class="dot"></i><span>Cookies</span></div>
       <div class="chip" id="chipDrive"><i class="dot"></i><span>Drive</span></div>
     </div>
@@ -436,8 +407,8 @@
     <section data-step="1" class="on">
       <div class="card hero">
         <div class="eq" id="eq"></div>
-        <h2>Baixe, recorte, <em>separe e mixe</em><br>tudo em um só lugar</h2>
-        <p class="sub">Cole um link do YouTube (vídeo, Shorts, playlist ou canal) ou envie um arquivo do computador. Baixe em MP4 ou áudio, recorte um trecho ou deixe a inteligência artificial separar voz e instrumentos para ouvir e mixar aqui mesmo.</p>
+        <h2>Baixe vídeos e <em>extraia o áudio</em></h2>
+        <p class="sub">Cole um link do YouTube (vídeo, Shorts, playlist ou canal) ou envie um arquivo do computador. Escolha o formato, a qualidade e o trecho que deseja salvar.</p>
         <div class="tabs"><button class="tab sel" data-src="yt">▶ Link do YouTube</button><button class="tab" data-src="file">📁 Arquivo do computador</button></div>
         <div class="src-pane on" data-pane="yt">
           <div class="input-row">
@@ -458,7 +429,7 @@
         <div class="src-pane" data-pane="file">
           <div class="drop" id="drop">
             <div class="big">🎧</div><b>Arraste um arquivo de áudio ou vídeo aqui, ou clique para escolher</b>
-            <span>MP3, WAV, FLAC, M4A, OGG, OPUS, AIFF ou vídeo MP4/WEBM/MKV/MOV · até <b id="maxUp">1 GB</b> · para separar faixas com IA</span>
+            <span>MP3, WAV, FLAC, M4A, OGG, OPUS, AIFF ou vídeo MP4/WEBM/MKV/MOV · até <b id="maxUp">1 GB</b></span>
             <input type="file" id="fileInput" accept="audio/*,video/mp4,video/webm,.mp3,.wav,.flac,.m4a,.aac,.ogg,.opus,.aiff,.aif,.mp4,.webm,.mkv,.mov">
           </div>
           <div class="upbar" id="upBar"><div class="row" style="justify-content:space-between;margin-bottom:6px"><span class="small" id="upLabel">Enviando…</span><span class="small muted" id="upPct">0%</span></div><div class="bar striped"><i id="upFill"></i></div></div>
@@ -467,8 +438,7 @@
 
       <div class="feats">
         <div class="feat" style="--c:#ff4f7b"><div class="fi">🎬</div><div><b>Vídeo em MP4 ou só o áudio</b>Qualquer resolução disponível (até 8K) ou MP3, M4A, OPUS, FLAC, WAV e original. Playlists inteiras com seleção item a item.</div></div>
-        <div class="feat" style="--c:#7c5cff"><div class="fi">🎧</div><div><b>Separação de faixas com IA</b>Voz + playback, banda (4 faixas) ou completo (6 faixas). Ouça no mixer, silencie, isole e ajuste volumes antes de baixar.</div></div>
-        <div class="feat" style="--c:#22d3ee"><div class="fi">✂️</div><div><b>Recorte, mixagem e Drive</b>Baixe só um trecho, renderize sua própria mixagem, receba tudo em ZIP e guarde cópias no Google Drive.</div></div>
+        <div class="feat" style="--c:#22d3ee"><div class="fi">✂️</div><div><b>Recorte, ZIP e Drive</b>Recorte um trecho, baixe os resultados da playlist em ZIP ou guarde cópias no Google Drive.</div></div>
       </div>
 
       <details class="card" id="cookiesCard">
@@ -514,28 +484,10 @@
         <h2>O que você quer fazer?</h2>
         <p class="sub" id="actionSub">Escolha uma opção. Você ajusta os detalhes logo abaixo.</p>
         <div class="choices" id="actionChoices"></div>
-        <div class="note warn" id="sepUnavailableNote" style="display:none"></div>
       </div>
 
       <div id="optVideo" style="display:none"><div class="card" id="videoQualityCard"></div></div>
       <div id="optAudio" style="display:none"><div class="card" id="audioFormatCard"></div></div>
-      <div id="optSep" style="display:none">
-        <div class="card">
-          <h2>Como separar?</h2>
-          <p class="sub">Quanto mais faixas, mais tempo leva. O tempo estimado considera a duração da música e a GPU do Colab.</p>
-          <div class="choices" id="modeChoices"></div>
-          <div class="note warn" id="gpuNote" style="display:none"></div>
-          <div class="note info" id="modelNote" style="display:none"></div>
-        </div>
-        <div class="card">
-          <h3>Formato das faixas</h3>
-          <div class="chips" id="fmtChips">
-            <button class="chipbtn sel" data-fmt="wav">WAV<small>sem perda · maior</small></button>
-            <button class="chipbtn" data-fmt="flac">FLAC<small>sem perda · compacto</small></button>
-            <button class="chipbtn" data-fmt="mp3">MP3 320<small>menor · universal</small></button>
-          </div>
-        </div>
-      </div>
 
       <div class="card" id="extrasCard">
         <h3>Extras</h3>
@@ -616,27 +568,21 @@
   // ---------- estado ----------
   const S = { cfg:{}, srcTab:'yt', linkMode:'auto', analysis:null, choice:null, selected:new Set(), source:null, playerOn:false,
               action:null, height:null, audioFormat:'mp3', audioQuality:'best', embedMeta:true, trim:{on:false},
-              mode:'2stem', fmt:'wav', saveDrive:false, jobId:null, timer:null, step:1, maxStep:1, mixer:null, knownJobs:{}, queueTimer:null, modelTimer:null };
+              saveDrive:false, jobId:null, timer:null, step:1, maxStep:1, knownJobs:{}, queueTimer:null };
   const STD_RES = [2160, 1440, 1080, 720, 480, 360];
   const RES_NAMES = {4320:'8K', 2160:'4K UHD', 1440:'2K QHD', 1080:'Full HD', 720:'HD', 480:'SD', 360:'Baixa', 240:'Muito baixa', 144:'Mínima'};
-  const MODE_INFO = {
-    '2stem': {ic:'🎤', t:'Voz + Playback', d:'Ideal para karaokê, estudar canto ou tirar a voz. Usa o BS-Roformer, o modelo mais preciso para voz.', tag:'Mais usado'},
-    '4stem': {ic:'🥁', t:'Banda (4 faixas)', d:'Voz, bateria, baixo e o resto dos instrumentos. Usa o Demucs afinado, excelente em bateria e baixo.', tag:'Mais lento'},
-    '6stem': {ic:'🎸', t:'Completo (6 faixas)', d:'Voz, bateria, baixo, guitarra, piano e outros. Guitarra e piano podem vazar um pouco entre si.', tag:''},
-  };
   const AUDIO_FORMATS = [
     {id:'mp3',  ic:'🎵', t:'MP3',  d:'Universal. Toca em qualquer lugar.', q:true},
     {id:'m4a',  ic:'🍎', t:'M4A / AAC', d:'Ótima qualidade, ideal para Apple e celulares.', q:true},
     {id:'opus', ic:'🪶', t:'OPUS', d:'Melhor compressão. Arquivos menores.', q:true},
     {id:'flac', ic:'💎', t:'FLAC', d:'Sem perdas (a partir da fonte). Arquivo grande.', q:false},
     {id:'wav',  ic:'🎛', t:'WAV',  d:'Sem compressão. Para edição.', q:false},
-    {id:'best', ic:'⚡', t:'Original', d:'Sem conversão: o áudio exatamente como o YouTube entrega (m4a/webm). Mais rápido.', q:false},
+    {id:'best', ic:'⚡', t:'Original', d:'Preserva o áudio da fonte, sem recodificação.', q:false},
   ];
   const AUDIO_Q = [{id:'best', t:'Melhor', d:'VBR máxima'}, {id:'320', t:'320 kbps'}, {id:'256', t:'256 kbps'}, {id:'192', t:'192 kbps'}, {id:'128', t:'128 kbps'}, {id:'96', t:'96 kbps'}];
   const ACTIONS = {
-    video:    {ic:'🎬', t:'Baixar vídeo em MP4', d:'Vídeo + áudio, compatível com qualquer aparelho. Você escolhe a resolução.'},
-    audio:    {ic:'🎵', t:'Baixar só o áudio', d:'MP3, M4A, OPUS, FLAC, WAV ou o áudio original, na qualidade que preferir.'},
-    separate: {ic:'🎧', t:'Separar faixas com IA', d:'Voz, playback, bateria, baixo e mais. Ouça no mixer, renderize mixagens e baixe em WAV, FLAC ou MP3.'},
+    video:    {ic:'🎬', t:'Vídeo em MP4', d:'Vídeo + áudio, compatível com qualquer aparelho. Você escolhe a resolução.'},
+    audio:    {ic:'🎵', t:'Extrair ou converter áudio', d:'MP3, M4A, OPUS, FLAC, WAV ou o áudio original, na qualidade que preferir.'},
   };
 
   // ---------- ponte com o Python ----------
@@ -703,8 +649,6 @@
     $$('section[data-step]').forEach(s => s.classList.toggle('on', +s.dataset.step === n));
     $$('.step').forEach(st => { const k = +st.dataset.go; st.classList.toggle('active', k===n); st.classList.toggle('done', k<n); });
     if(n !== 5) (S.resultPlayers || []).forEach(p => p.pause());
-    if(n !== 5 && S.mixer) S.mixer.pause();
-    if(n !== 3) stopWatchModels();
     root.scrollIntoView({behavior:'smooth', block:'start'}); resize();
   }
   $$('.step').forEach(st => st.addEventListener('click', () => { const k=+st.dataset.go; if(k < S.step && k <= 3 && (k === 1 || S.source || S.analysis)) goto(k); }));
@@ -734,12 +678,6 @@
       st.className = 'note'; st.innerHTML = `<b>${c.total}</b> cookies do YouTube carregados ${c.source==='drive' ? 'automaticamente do seu <b>Drive</b>' : 'nesta sessão'} (atualizados em ${esc(c.updated)}). ` + (ok ? 'Os cookies de login da sua conta estão presentes.' : '<span style="color:var(--warn)">Não encontrei cookies de login: exporte novamente com o YouTube logado.</span>') + (c.saved_drive ? ' Salvo no Drive para as próximas vezes.' : '');
     }
   }
-  function renderGpu(g){
-    const chip = $('#chipGpu');
-    if(g && g.available){ chip.className = 'chip ok'; chip.querySelector('span').textContent = `GPU ${g.name.replace('Tesla ','').replace('NVIDIA ','')} · ${g.memory_gb} GB`; chip.title = 'GPU pronta para separar faixas'; }
-    else if(g && g.mock){ chip.className = 'chip info'; chip.querySelector('span').textContent = 'Modo de teste (sem IA)'; }
-    else { chip.className = 'chip warn clickable'; chip.querySelector('span').textContent = 'Sem GPU'; chip.title = 'Clique para saber como ativar a GPU'; chip.onclick = () => confirmModal({title:'Ativar a GPU no Colab', text:'A separação de faixas precisa de GPU. No menu do Colab, vá em <b>Ambiente de execução ▸ Alterar o tipo de ambiente de execução</b>, escolha <b>T4 GPU</b> e salve. Depois rode as células 1 e 2 novamente.<br><br>Sem GPU o app continua baixando vídeos e áudio normalmente; só a separação fica lenta (roda no processador).', ok:'Entendi', cancel:'Fechar'}); }
-  }
   async function bootstrap(){
     const r = await api('bootstrap');
     if(!r.ok){ toast('Falha ao iniciar: ' + r.error, 'err'); return; }
@@ -750,10 +688,9 @@
     $('#footInfo').textContent = `${r.app || 'StemTube'} ${r.version || ''} · yt-dlp ${r.ytdlp}` + (r.js_runtime ? ` · ${r.js_runtime}` : '');
     $('#maxUp').textContent = r.max_upload_mb >= 1024 ? `${r.max_upload_mb / 1024} GB` : `${r.max_upload_mb} MB`;
     if(!r.drive){ const n = $('#cookiesDriveNote'); n.style.display='block'; n.className = 'note warn'; n.innerHTML = 'O Google Drive não foi conectado na célula 1, então os cookies valem só para esta sessão. Conecte o Drive para que eles sejam carregados automaticamente nas próximas vezes.'; }
-    renderCookies(r.cookies); renderGpu(r.gpu); renderModeChoices();
+    renderCookies(r.cookies);
     if(r.cookies_migrated_from) toast(`Cookies recuperados da pasta ${r.cookies_migrated_from} do seu Drive e copiados para Meu Drive / StemTube.`, 'ok', 7000);
     if(!r.js_runtime) toast('Nenhum runtime JavaScript (deno) detectado: alguns vídeos podem falhar. Rode a célula 1 novamente.', 'warn', 7000);
-    if(!r.separator) toast('Separador de IA não instalado: apenas downloads estão disponíveis. Para separar faixas, rode a célula 1 com "instalar_separador_ia" marcado.', 'warn', 9000);
     resize();
     try { startQueuePolling(); } catch(e){}
   }
@@ -816,7 +753,6 @@
   $('#fileInput').addEventListener('change', e => { const f = e.target.files[0]; e.target.value=''; if(f) uploadFile(f); });
   async function uploadFile(file){
     if(file.size > (S.cfg.max_upload_mb||1024) * 1024 * 1024) return toast(`O arquivo tem ${(file.size/1048576).toFixed(0)} MB. O limite é ${S.cfg.max_upload_mb||1024} MB.`, 'err', 7000);
-    if(!S.cfg.separator) return toast('O separador de IA não está instalado nesta sessão, então arquivos locais não podem ser processados. Rode a célula 1 com "instalar_separador_ia" marcado.', 'warn', 9000);
     const bar = $('#upBar'), fill = $('#upFill'), pct = $('#upPct'), lab = $('#upLabel');
     bar.classList.add('on'); fill.style.width = '0%'; pct.textContent = '0%'; lab.textContent = `Enviando ${file.name}…`; resize();
     try {
@@ -848,8 +784,8 @@
       const s = S.source;
       html = `<div class="card"><div class="preview"><div class="filecard">🎧<span class="dur" style="position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:6px">${esc(s.duration_str)}</span></div>
         <div><h3 class="vtitle">${esc(s.title)}</h3><div class="vchan">📁 Arquivo do seu computador</div><div class="meta"><span class="badge">⏱ ${esc(s.duration_str)}</span><span class="badge">📦 ${esc(s.file_size_label)}</span><span class="badge">📄 ${esc((s.file_name||'').split('.').pop().toUpperCase())}</span></div>
-        ${s.too_long ? `<div class="note warn" style="margin-top:0">Áudio longo demais para separar (limite de ${Math.round((S.cfg.max_duration||1500)/60)} min). Envie um arquivo mais curto.</div>` : '<p class="small muted">Confira se é o arquivo certo e continue para escolher como separar as faixas.</p>'}</div></div></div>`;
-      area.innerHTML = html; $('#toOptionsBtn').disabled = !!s.too_long; resize(); return;
+        <p class="small muted">Continue para escolher o formato de saída.</p></div></div></div>`;
+      area.innerHTML = html; $('#toOptionsBtn').disabled = false; resize(); return;
     }
     const a = S.analysis;
     if(a.video && a.playlist){
@@ -873,7 +809,6 @@
     if(v.is_live) flags.push('<span class="badge err">AO VIVO</span>');
     if(v.age_limit >= 18) flags.push('<span class="badge warn">+18 · precisa de cookies</span>');
     if(v.availability && v.availability !== 'public') flags.push(`<span class="badge info">${esc(v.availability)}</span>`);
-    if(v.too_long) flags.push(`<span class="badge warn">longo demais para separar (limite ${Math.round((S.cfg.max_duration||1500)/60)} min)</span>`);
     const best = v.resolutions[0];
     return `<div class="card"><div class="preview">
       <div class="player" id="player" title="Clique para assistir a prévia"><img src="${esc(v.thumbnail)}" alt=""><div class="play"><span><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span></div><div class="dur">${fmtDur(v.duration)}</div></div>
@@ -927,30 +862,23 @@
     refresh();
   }
   function updateContinue(){
-    const ok = S.choice === 'video' ? !!(S.analysis && S.analysis.video && !S.analysis.video.is_live) : (S.choice === 'playlist' ? S.selected.size > 0 : (S.choice === 'file' && S.source && !S.source.too_long));
+    const ok = S.choice === 'video' ? !!(S.analysis && S.analysis.video && !S.analysis.video.is_live) : (S.choice === 'playlist' ? S.selected.size > 0 : (S.choice === 'file' && S.source));
     $('#toOptionsBtn').disabled = !ok;
   }
   $('#toOptionsBtn').addEventListener('click', () => { renderActions(); goto(3); });
 
   // ---------- etapa 3: opções ----------
-  function availableActions(){
-    if(S.choice === 'file') return ['separate'];
-    if(S.choice === 'playlist') return ['video', 'audio'];
-    return ['video', 'audio', 'separate'];
-  }
-  function separateBlocked(){
-    if(!S.cfg.separator) return 'O separador de IA não foi instalado nesta sessão. Rode a célula 1 com "instalar_separador_ia" marcado para habilitar.';
-    const src = currentSource(); if(src && src.too_long) return `Esta música tem ${src.duration_str}. A separação aceita até ${Math.round((S.cfg.max_duration||1500)/60)} min; o download continua disponível.`;
-    return null;
-  }
   function currentSource(){ return S.choice === 'file' ? S.source : (S.analysis && S.analysis.video ? S.analysis.video : null); }
   function renderActions(){
-    const acts = availableActions(); const blocked = separateBlocked();
-    if(!S.action || !acts.includes(S.action) || (S.action === 'separate' && blocked)) S.action = acts.find(a => a !== 'separate' || !blocked) || acts[0];
-    $('#actionChoices').innerHTML = acts.map(k => { const a = ACTIONS[k]; const off = k === 'separate' && blocked; const pills = k === 'separate' ? `<span class="pills"><span class="pill" style="background:#f472b6">Voz</span><span class="pill" style="background:#38bdf8">Playback</span><span class="pill" style="background:#fb923c">Bateria</span><span class="pill" style="background:#a78bfa">Baixo</span><span class="pill" style="background:#94a3b8">+</span></span>` : '';
-      return `<button class="choice big ${k===S.action?'sel':''} ${off?'off':''}" data-action="${k}" ${off?'disabled':''}><span class="check">✓</span><span class="ic">${a.ic}</span><span class="t">${esc(a.t)}</span><span class="d">${esc(a.d)}</span>${pills}</button>`; }).join('');
-    const n = $('#sepUnavailableNote'); if(blocked && S.choice !== 'playlist'){ n.style.display = 'block'; n.textContent = blocked; } else n.style.display = 'none';
-    $('#actionSub').textContent = S.choice === 'playlist' ? `${S.selected.size} vídeos selecionados. A separação de faixas trabalha com uma música por vez.` : (S.choice === 'file' ? 'Arquivos do computador são usados para separar faixas com IA.' : 'Escolha uma opção. Você ajusta os detalhes logo abaixo.');
+    const acts = S.choice === 'file'
+      ? ['video', 'audio'].filter(k => k === 'video' ? S.source.height : S.source.audio_codec)
+      : ['video', 'audio'];
+    if(!acts.includes(S.action)) S.action = acts[0];
+    $('#actionChoices').innerHTML = acts.map(k => {
+      const a = ACTIONS[k];
+      return `<button class="choice big ${k===S.action?'sel':''}" data-action="${k}"><span class="check">✓</span><span class="ic">${a.ic}</span><span class="t">${a.t}</span><span class="d">${a.d}</span></button>`;
+    }).join('');
+    $('#actionSub').textContent = S.choice === 'playlist' ? `${S.selected.size} vídeos selecionados.` : 'Escolha o formato de saída.';
     renderOptions();
   }
   $('#actionChoices').addEventListener('click', e => { const c = e.target.closest('.choice'); if(!c || c.disabled) return; S.action = c.dataset.action; $$('#actionChoices .choice').forEach(x => x.classList.toggle('sel', x === c)); renderOptions(); });
@@ -959,35 +887,36 @@
     const act = S.action, dl = act === 'video' || act === 'audio';
     $('#optVideo').style.display = act === 'video' ? 'block' : 'none';
     $('#optAudio').style.display = act === 'audio' ? 'block' : 'none';
-    $('#optSep').style.display = act === 'separate' ? 'block' : 'none';
     $('#extrasCard').style.display = dl ? 'block' : 'none';
     if(act === 'video') renderVideoQuality();
     if(act === 'audio') renderAudioFormat();
-    if(act === 'separate'){ renderSepOptions(); watchModels(); } else stopWatchModels();
     // extras
-    const single = S.choice === 'video';
+    const single = S.choice !== 'playlist';
     $('#trimToggle').style.display = single && dl ? '' : 'none'; $('#trimBox').style.display = single && dl && S.trim.on ? 'block' : 'none';
-    if(single && dl){ $('#trimToggle .sw').classList.toggle('on', !!S.trim.on); $('#trimTotal').textContent = fmtDur(S.analysis.video.duration); $('#trimEnd').placeholder = fmtDur(S.analysis.video.duration); refreshTrim(); }
+    if(single && dl){ $('#trimToggle .sw').classList.toggle('on', !!S.trim.on); $('#trimTotal').textContent = fmtDur(currentSource().duration); $('#trimEnd').placeholder = fmtDur(currentSource().duration); refreshTrim(); }
+    $('#metaToggle .tt').textContent = S.choice === 'file' ? 'Preservar metadados' : 'Incluir capa e metadados';
+    $('#metaToggle .td').textContent = S.choice === 'file' ? 'Copia as informações compatíveis com o formato escolhido.' : 'Grava os metadados disponíveis e a capa nos formatos de áudio compatíveis.';
     $('#metaToggle .sw').classList.toggle('on', S.embedMeta);
     // destino
-    const sub = act === 'separate' ? 'Faixas' : (act ? 'Downloads' : '');
-    $('#driveToggleDesc').textContent = S.cfg.drive ? `Cópia em Meu Drive / StemTube / ${sub}.` : 'Indisponível: o Drive não foi conectado na célula 1.';
+    $('#driveToggleDesc').textContent = S.cfg.drive ? 'Cópia em Meu Drive / StemTube / Downloads.' : 'Indisponível: o Drive não foi conectado na célula 1.';
     if(!S.cfg.drive) S.saveDrive = false;
     $('#driveToggle .sw').classList.toggle('on', S.saveDrive); $('#folderBox').style.display = (S.saveDrive && dl) ? 'block' : 'none';
     if(S.choice === 'playlist' && !$('#folderInput').value) $('#folderInput').value = (S.analysis.playlist.title||'').slice(0,80);
-    $('#startBtn').innerHTML = act === 'separate' ? '✨ Separar faixas' : (act === 'video' ? '⬇ Baixar vídeo' : '⬇ Baixar áudio');
+    $('#startBtn').innerHTML = S.choice === 'file' ? 'Converter arquivo' : (act === 'video' ? '⬇ Baixar vídeo' : '⬇ Baixar áudio');
     renderSummary(); resize();
   }
   function renderVideoQuality(){
-    const single = S.choice === 'video', v = S.analysis.video, qc = $('#videoQualityCard');
+    const single = S.choice === 'video', v = S.analysis?.video, qc = $('#videoQualityCard');
     let opts;
-    if(single) opts = v.resolutions.map(r => ({ id: r.height, t: `${r.height}p` + (r.fps>30 ? `<small style="font-size:12px;color:var(--muted)"> ${r.fps}fps</small>` : ''), d: [RES_NAMES[r.height], r.vcodec, r.size_label ? '~'+r.size_label : null].filter(Boolean).join(' · '), badge: r.hdr ? 'HDR' : (r.height>=2160 ? '4K' : null) }));
+    if(S.choice === 'file') opts = [{id:'best', t:'Original', d:`${S.source.height}p`},
+      ...STD_RES.filter(h=>h<S.source.height).map(h=>({id:h, t:h+'p', d:RES_NAMES[h]}))];
+    else if(single) opts = v.resolutions.map(r => ({ id: r.height, t: `${r.height}p` + (r.fps>30 ? `<small style="font-size:12px;color:var(--muted)"> ${r.fps}fps</small>` : ''), d: [RES_NAMES[r.height], r.vcodec, r.size_label ? '~'+r.size_label : null].filter(Boolean).join(' · '), badge: r.hdr ? 'HDR' : (r.height>=2160 ? '4K' : null) }));
     else opts = [{id:'best', t:'Melhor', d:'A maior resolução de cada vídeo'}].concat(STD_RES.map(h => ({id:h, t:`${h}p`, d: RES_NAMES[h] + ' ou a mais próxima abaixo'})));
     if(!opts.length) opts = [{id:'best', t:'Melhor', d:'A maior resolução disponível'}];
     if(S.height == null || !opts.some(o => String(o.id) === String(S.height))) S.height = opts[0].id;
-    qc.innerHTML = `<h2>Resolução</h2><p class="sub">${single ? 'Estas são as resoluções disponíveis para este vídeo. O tamanho é estimado.' : 'Na playlist cada vídeo pode ter resoluções diferentes: eu uso a que você escolher ou a mais próxima abaixo dela.'}</p>
+    qc.innerHTML = `<h2>Resolução</h2><p class="sub">${S.choice === 'file' ? 'Mantenha a altura original ou escolha uma resolução menor.' : single ? 'Estas são as resoluções disponíveis para este vídeo. O tamanho é estimado.' : 'Na playlist cada vídeo pode ter resoluções diferentes: eu uso a que você escolher ou a mais próxima abaixo dela.'}</p>
       <div class="quality">${opts.map(o => `<button class="choice ${String(o.id)===String(S.height)?'sel':''}" data-q="${o.id}"><span class="t">${o.t}${o.badge?` <span class="badge acc" style="vertical-align:middle">${o.badge}</span>`:''}</span><span class="d">${esc(o.d)}</span></button>`).join('')}</div>
-      <div class="note">Saída sempre em <b>.mp4</b>. Quando o YouTube só oferece a resolução em VP9/AV1 (comum em 1440p e 4K), o arquivo é empacotado em MP4 sem perda de qualidade.</div>`;
+      <div class="note">Saída sempre em <b>.mp4</b>. ${S.choice === 'file' ? 'O arquivo é convertido para H.264.' : 'A resolução depende das opções disponíveis no YouTube.'}</div>`;
     $$('[data-q]', qc).forEach(b => b.addEventListener('click', () => { S.height = isNaN(+b.dataset.q) ? b.dataset.q : +b.dataset.q; renderVideoQuality(); renderSummary(); }));
   }
   function renderAudioFormat(){
@@ -995,40 +924,11 @@
     const src = S.choice === 'video' ? S.analysis.video.audio_formats : [];
     qc.innerHTML = `<h2>Formato do áudio</h2><p class="sub">Escolha o formato do arquivo final.</p>
       <div class="quality">${AUDIO_FORMATS.map(o => `<button class="choice ${o.id===S.audioFormat?'sel':''}" data-af="${o.id}"><span class="t">${o.ic} ${o.t}</span><span class="d">${esc(o.d)}</span></button>`).join('')}</div>
-      ${f.q ? `<h3 style="margin-top:18px">Qualidade</h3><div class="chips">${AUDIO_Q.map(q => `<button class="chipbtn ${q.id===S.audioQuality?'sel':''}" data-aq="${q.id}">${q.t}${q.d?`<small>${esc(q.d)}</small>`:''}</button>`).join('')}</div><p class="hint">O YouTube entrega áudio de até ~130–160 kbps (ou ~256 kbps em vídeos musicais com Premium). Escolher mais que isso não melhora o som, só aumenta o arquivo.</p>` : ''}
+      ${f.q ? `<h3 style="margin-top:18px">Qualidade</h3><div class="chips">${AUDIO_Q.map(q => `<button class="chipbtn ${q.id===S.audioQuality?'sel':''}" data-aq="${q.id}">${q.t}${q.d?`<small>${esc(q.d)}</small>`:''}</button>`).join('')}</div><p class="hint">Uma taxa maior que a da fonte aumenta o tamanho do arquivo sem recuperar detalhes perdidos.</p>` : ''}
       ${src.length ? `<h3 style="margin-top:18px">Faixas de áudio disponíveis na fonte</h3><div class="chips">${src.map(a => `<span class="badge">${esc(a.ext)} · ${esc(a.acodec)} · ${a.abr} kbps${a.size_label?' · '+a.size_label:''}${a.lang?' · '+esc(a.lang):''}</span>`).join('')}</div>` : ''}`;
     $$('[data-af]', qc).forEach(b => b.addEventListener('click', () => { S.audioFormat = b.dataset.af; renderAudioFormat(); renderSummary(); resize(); }));
     $$('[data-aq]', qc).forEach(b => b.addEventListener('click', () => { S.audioQuality = b.dataset.aq; renderAudioFormat(); renderSummary(); }));
   }
-  function estSeconds(mode, dur){ const m = S.cfg.modes && S.cfg.modes[mode]; if(!m) return 0; return m.base + (dur||180) * m.factor; }
-  function renderModeChoices(){
-    const box = $('#modeChoices'); const modes = S.cfg.modes || {};
-    box.innerHTML = Object.keys(modes).map(k => { const mi = MODE_INFO[k] || {}; const pills = modes[k].stems.map(st => `<span class="pill" style="background:${S.cfg.stem_color[st]}">${esc(S.cfg.stem_pt[st])}</span>`).join('');
-      return `<button class="choice ${k===S.mode?'sel':''}" data-mode="${k}"><span class="check">✓</span>${mi.tag ? `<span class="badge tag ${k==='2stem'?'acc':''}">${esc(mi.tag)}</span>` : ''}<span class="ic">${mi.ic}</span><span class="t">${esc(mi.t)}</span><span class="d">${esc(mi.d)}</span><span class="pills">${pills}</span><span class="d" style="margin-top:8px;color:var(--muted-2)">⏱ estimado: <b data-est="${k}">—</b></span></button>`; }).join('');
-  }
-  $('#modeChoices').addEventListener('click', e => { const c = e.target.closest('.choice'); if(!c) return; S.mode = c.dataset.mode; $$('#modeChoices .choice').forEach(x => x.classList.toggle('sel', x === c)); renderSummary(); watchModels(); });
-  $('#fmtChips').addEventListener('click', e => { const c = e.target.closest('.chipbtn'); if(!c) return; S.fmt = c.dataset.fmt; $$('#fmtChips .chipbtn').forEach(x => x.classList.toggle('sel', x === c)); renderSummary(); });
-  function renderSepOptions(){
-    const src = currentSource();
-    $$('[data-est]').forEach(el => { el.textContent = fmtEta(estSeconds(el.dataset.est, src && src.duration)); });
-    const g = S.cfg.gpu || {}; const gn = $('#gpuNote');
-    if(!g.available && !g.mock){ gn.style.display = 'block'; gn.innerHTML = '<b>Sem GPU nesta sessão.</b> A separação vai rodar no processador e pode levar dezenas de minutos. Para ativar: <b>Ambiente de execução ▸ Alterar o tipo de ambiente de execução ▸ T4 GPU</b>, depois rode as células 1 e 2 de novo.'; } else gn.style.display = 'none';
-  }
-  async function watchModels(){
-    stopWatchModels();
-    if(S.action !== 'separate') return;
-    const tick = async () => {
-      let r; try { r = await api('models_status'); } catch(e){ return; }
-      if(!r.ok) return;
-      const m = r.models[S.mode]; const note = $('#modelNote');
-      if(S.step !== 3 || S.action !== 'separate'){ note.style.display = 'none'; return; }
-      if(m && m.ready){ note.style.display = 'block'; note.className = 'note ok'; note.innerHTML = '✅ <b>Modelo de IA pronto</b> nesta sessão. Ele já foi baixado; só precisa ser carregado na memória.'; stopWatchModels(); }
-      else { note.style.display = 'block'; note.className = 'note info'; note.innerHTML = (m && m.prefetch === 'running') ? '⏳ O modelo de IA está sendo baixado em segundo plano (uma vez por sessão). Você pode começar agora mesmo: a separação espera o download terminar.' : 'ℹ️ O modelo de IA deste modo será baixado na primeira vez (uma vez por sessão, cerca de 1 a 3 minutos).'; }
-      resize();
-    };
-    await tick(); if(!S.modelTimer && S.step === 3 && S.action === 'separate') S.modelTimer = setInterval(tick, 5000);
-  }
-  function stopWatchModels(){ if(S.modelTimer){ clearInterval(S.modelTimer); S.modelTimer = null; } }
 
   // extras: metadados, recorte, destino
   $('#metaToggle').addEventListener('click', () => { S.embedMeta = !S.embedMeta; $('#metaToggle .sw').classList.toggle('on', S.embedMeta); renderSummary(); });
@@ -1039,7 +939,7 @@
     return p.reduce((a, x) => a*60 + parseFloat(x.replace(',', '.')), 0);
   }
   function trimState(){
-    const dur = (S.analysis && S.analysis.video && S.analysis.video.duration) || 0;
+    const dur = currentSource()?.duration || 0;
     const sRaw = $('#trimStart').value.trim(), eRaw = $('#trimEnd').value.trim();
     const st = sRaw ? parseTime(sRaw) : 0, en = eRaw ? parseTime(eRaw) : (dur || null);
     if(st == null || en == null) return {ok:false, msg: eRaw || sRaw ? 'Tempo inválido. Use mm:ss (ex.: 1:23).' : 'Informe o fim do trecho.'};
@@ -1058,13 +958,14 @@
   }
   $('#trimToggle').addEventListener('click', () => { S.trim.on = !S.trim.on; $('#trimToggle .sw').classList.toggle('on', S.trim.on); $('#trimBox').style.display = S.trim.on ? 'block' : 'none'; if(S.trim.on) $('#trimEnd').focus(); refreshTrim(); resize(); });
   $('#trimStart').addEventListener('input', refreshTrim); $('#trimEnd').addEventListener('input', refreshTrim);
-  function currentTrim(){ if(S.choice !== 'video' || !S.trim.on || S.action === 'separate') return null; const t = trimState(); return t.ok ? {start: t.start, end: t.end} : {invalid: t.msg}; }
+  function currentTrim(){ if(S.choice === 'playlist' || !S.trim.on) return null; const t = trimState(); return t.ok ? {start: t.start, end: t.end} : {invalid: t.msg}; }
   $('#driveToggle').addEventListener('click', () => {
     if(!S.cfg.drive) return toast('O Google Drive não foi conectado na célula 1. Rode a célula 1 com a opção de conectar o Drive marcada.', 'warn', 7000);
-    S.saveDrive = !S.saveDrive; $('#driveToggle .sw').classList.toggle('on', S.saveDrive); $('#folderBox').style.display = (S.saveDrive && S.action !== 'separate') ? 'block' : 'none'; renderSummary(); resize();
+    S.saveDrive = !S.saveDrive; $('#driveToggle .sw').classList.toggle('on', S.saveDrive); $('#folderBox').style.display = S.saveDrive ? 'block' : 'none'; renderSummary(); resize();
   });
 
   function selectedItems(){
+    if(S.choice === 'file') return [S.source];
     if(S.choice === 'video'){ const v = S.analysis.video; return [{id:v.id, url:v.url, title:v.title, thumbnail:v.thumbnail}]; }
     if(S.choice === 'playlist') return S.analysis.playlist.items.filter(i => S.selected.has(i.id)).map(i => ({id:i.id, url:i.url, title:i.title, thumbnail:i.thumbnail}));
     return [];
@@ -1075,19 +976,14 @@
   }
   function renderSummary(){
     const act = S.action; if(!act) return;
-    const rows = []; const src = currentSource();
-    if(act === 'separate'){
-      rows.push(['Música', esc(src.title)], ['Duração', esc(src.duration_str)], ['Modo', esc(MODE_INFO[S.mode].t)], ['Faixas', esc(S.cfg.modes[S.mode].stems.map(st => S.cfg.stem_pt[st]).join(', '))], ['Formato', S.fmt.toUpperCase()], ['Tempo estimado', '≈ ' + fmtEta(estSeconds(S.mode, src.duration))]);
-      $('#summaryList').innerHTML = '';
-    } else {
-      const items = selectedItems(); let est = null;
-      if(S.choice === 'video'){ const v = S.analysis.video; if(act==='video'){ const r = v.resolutions.find(r=>r.height===S.height); est = r && r.size_label; } else { const a = v.audio_formats[0]; est = a && a.size_label ? '~'+a.size_label : null; } }
-      const trim = currentTrim();
-      rows.push(['Tipo', act === 'video' ? '🎬 Vídeo MP4' : '🎵 Somente áudio'], ['Qualidade', esc(qualityLabel())], ['Itens', `${items.length} ${items.length===1?'vídeo':'vídeos'}` + (S.choice==='playlist' ? ` <small>de ${S.analysis.playlist.count}</small>` : '')]);
-      if(trim) rows.push(['Trecho', trim.invalid ? `<span style="color:var(--err)">inválido</span>` : `${fmtDur(trim.start)} → ${fmtDur(trim.end)} <small>(${fmtDur(trim.end - trim.start)})</small>`]);
-      rows.push(['Tamanho estimado', trim ? '<small>proporcional ao trecho</small>' : (est ? esc(est) : (S.choice==='playlist' ? '<small>varia por vídeo</small>' : '—'))], ['Extras', S.embedMeta ? 'Capa e metadados' : 'Sem extras']);
-      $('#summaryList').innerHTML = S.choice === 'playlist' ? items.slice(0, 50).map(i => `<div><img src="${esc(i.thumbnail)}" alt=""><span>${esc(i.title)}</span></div>`).join('') + (items.length>50 ? `<div class="muted small">… e mais ${items.length-50}</div>` : '') : '';
-    }
+    const rows = [];
+    const items = selectedItems(); let est = null;
+    if(S.choice === 'video'){ const v = S.analysis.video; if(act==='video'){ const r = v.resolutions.find(r=>r.height===S.height); est = r && r.size_label; } else { const a = v.audio_formats[0]; est = a && a.size_label ? '~'+a.size_label : null; } }
+    const trim = currentTrim();
+    rows.push(['Tipo', act === 'video' ? '🎬 Vídeo MP4' : '🎵 Somente áudio'], ['Qualidade', esc(qualityLabel())], ['Itens', `${items.length} ${items.length===1?'arquivo':'arquivos'}` + (S.choice==='playlist' ? ` <small>de ${S.analysis.playlist.count}</small>` : '')]);
+    if(trim) rows.push(['Trecho', trim.invalid ? `<span style="color:var(--err)">inválido</span>` : `${fmtDur(trim.start)} → ${fmtDur(trim.end)} <small>(${fmtDur(trim.end - trim.start)})</small>`]);
+    rows.push(['Tamanho estimado', trim ? '<small>proporcional ao trecho</small>' : (est ? esc(est) : (S.choice==='playlist' ? '<small>varia por vídeo</small>' : '—'))], ['Extras', S.embedMeta ? (S.choice === 'file' ? 'Metadados' : 'Capa e metadados') : 'Sem extras']);
+    $('#summaryList').innerHTML = S.choice === 'playlist' ? items.slice(0, 50).map(i => `<div><img src="${esc(i.thumbnail)}" alt=""><span>${esc(i.title)}</span></div>`).join('') + (items.length>50 ? `<div class="muted small">… e mais ${items.length-50}</div>` : '') : '';
     rows.push(['Destino', 'Navegador' + (S.saveDrive ? ' + Google Drive' : '')]);
     $('#summaryGrid').innerHTML = rows.map(([k,v]) => `<div><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('');
     resize();
@@ -1095,27 +991,21 @@
 
   $('#startBtn').addEventListener('click', async () => {
     const act = S.action; if(!act) return;
-    let payload;
-    if(act === 'separate'){
-      const src = currentSource();
-      payload = { kind:'separate', source_id: src.source_id || src.id, mode: S.mode, out_format: S.fmt, save_drive: S.saveDrive };
-    } else {
-      const items = selectedItems(); const trim = currentTrim();
-      if(!items.length) return toast('Nenhum vídeo selecionado.', 'warn');
-      if(trim && trim.invalid) return toast('Recorte inválido: ' + trim.invalid, 'warn', 6000);
-      if(items.length > 1){
-        const ok = await confirmModal({ title: 'Iniciar download?', text: `<b>${items.length}</b> arquivos em <b>${esc(qualityLabel())}</b>${S.saveDrive ? ', com cópia no Google Drive' : ''}. ${items.length > 20 ? 'Playlists grandes podem levar bastante tempo: mantenha esta aba aberta.' : 'Você poderá cancelar a qualquer momento e adicionar outros links à fila enquanto baixa.'}`, ok: 'Sim, baixar' });
-        if(!ok) return;
-      }
-      payload = { kind:'download', items, mode: act, height: S.height || 'best', audio_format: S.audioFormat, audio_quality: S.audioQuality, embed_meta: S.embedMeta,
-                  save_drive: S.saveDrive, folder: $('#folderInput').value.trim(), trim: trim ? {start: trim.start, end: trim.end} : null,
-                  title: S.choice === 'playlist' ? S.analysis.playlist.title : items[0].title };
+    const items = selectedItems(); const trim = currentTrim();
+    if(!items.length) return toast('Nenhum vídeo selecionado.', 'warn');
+    if(trim && trim.invalid) return toast('Recorte inválido: ' + trim.invalid, 'warn', 6000);
+    if(items.length > 1){
+      const ok = await confirmModal({ title: 'Iniciar download?', text: `<b>${items.length}</b> arquivos em <b>${esc(qualityLabel())}</b>${S.saveDrive ? ', com cópia no Google Drive' : ''}. ${items.length > 20 ? 'Playlists grandes podem levar bastante tempo: mantenha esta aba aberta.' : 'Você poderá cancelar a qualquer momento e adicionar outros links à fila enquanto baixa.'}`, ok: 'Sim, baixar' });
+      if(!ok) return;
     }
+    const payload = { kind:'download', source_id: S.choice === 'file' ? S.source.id : null, items: items.map(({id,title,url,thumbnail})=>({id,title,url,thumbnail})), mode: act, height: S.height || 'best', audio_format: S.audioFormat, audio_quality: S.audioQuality, embed_meta: S.embedMeta,
+                save_drive: S.saveDrive, folder: $('#folderInput').value.trim(), trim: trim ? {start: trim.start, end: trim.end} : null,
+                title: S.choice === 'playlist' ? S.analysis.playlist.title : items[0].title };
     const btn = $('#startBtn'); busy(btn, true, 'Enviando…');
     try {
       const r = await api('start_job', payload);
       if(!r.ok) return toast(r.error, 'err', 9000);
-      S.jobId = r.job_id; stopWatchModels();
+      S.jobId = r.job_id;
       if(r.ahead) toast(`Adicionado à fila: ${r.ahead} tarefa(s) na frente. Você pode preparar outra enquanto isso.`, 'info', 6000);
       renderProc(null); goto(4); poll(); startQueuePolling();
     } catch(e){ toast('Erro ao iniciar: ' + e.message, 'err', 8000); }
@@ -1123,35 +1013,17 @@
   });
 
   // ---------- etapa 4: processamento ----------
-  const RING_C = 2 * Math.PI * 84;
   function renderProc(j){
     const card = $('#procCard');
     if(!j){
       card.innerHTML = `<div class="loading"><div class="lring"></div><p>Preparando a tarefa…</p></div>`;
       $('#procActions').innerHTML = ''; resize(); return;
     }
-    if(j.kind === 'download') renderDownloadProc(j); else renderStageProc(j);
+    renderDownloadProc(j);
     $('#procActions').innerHTML = `<button class="btn ghost" id="anotherBtn">＋ Preparar outra</button><span class="small muted">Mantenha esta aba aberta até terminar.</span><div class="right"><button class="btn danger" id="cancelBtn">✕ Cancelar</button></div>`;
     $('#cancelBtn').addEventListener('click', async e => { if(!await confirmModal({title:'Cancelar esta tarefa?', text:'O processamento será interrompido. Arquivos já concluídos continuam disponíveis; o item em andamento é descartado.', ok:'Cancelar tarefa', cancel:'Continuar', danger:true})) return; busy(e.target, true, 'Cancelando'); await api('cancel_job', j.id); });
     $('#anotherBtn').addEventListener('click', () => { resetToStart(); });
     resize();
-  }
-  function renderStageProc(j){
-    const card = $('#procCard');
-    const pct = j.status === 'done' ? 100 : Math.max(0, Math.min(100, Number(j.percent) || 0));
-    const indeterminate = j.status === 'running' && j.stage === 'model' && !(j.detail||'').includes('%');
-    const stages = (j.stages||[]).map(s => {
-      const cls = s.status === 'running' ? 'running' : (s.status === 'done' ? 'done' : (s.status === 'error' ? 'err' : ''));
-      const icon = s.status === 'done' ? '<div class="st done">✓</div>' : (s.status === 'running' ? '<div class="st run"></div>' : (s.status === 'error' ? '<div class="st err">!</div>' : (s.status === 'cancelled' ? '<div class="st">–</div>' : '<div class="st">·</div>')));
-      const det = s.status === 'running' ? esc(j.stage_label || '') + (j.detail ? ' · ' + esc(j.detail) : '') : (s.status === 'done' && s.started && s.ended ? `concluído em ${fmtEta(s.ended - s.started)}` : '');
-      const tm = s.status === 'running' && s.started ? fmtEta(Date.now()/1000 - s.started) : '';
-      return `<div class="tl ${cls}">${icon}<div><div class="lab">${esc(s.label)}</div><div class="det">${det}</div></div><div class="tm">${tm}</div></div>`;
-    }).join('');
-    const title = j.status === 'done' ? 'Concluído' : j.status === 'queued' ? `Na fila${j.ahead ? ` · ${j.ahead} na frente` : ''}` : (j.kind === 'mix' ? 'Renderizando mixagem' : 'Separando as faixas');
-    const est = j.kind === 'separate' && j.status === 'running' ? `Tempo estimado total: ≈ ${fmtEta(estSeconds(j.mode, j.duration))}` : '';
-    const stageShort = {fetch:'obtendo áudio', model:'modelo de IA', separate:'separando', export:'exportando'}[j.stage] || (j.status === 'queued' ? 'na fila' : '');
-    card.innerHTML = `<div class="proc"><div class="ringbox"><div class="ring ${indeterminate || j.status==='queued' ? 'busy' : ''}"><svg viewBox="0 0 200 200" style="animation-delay:${-(performance.now()%1600)}ms"><circle class="track" cx="100" cy="100" r="84"/><circle class="prog" cx="100" cy="100" r="84" stroke-dasharray="${RING_C}" stroke-dashoffset="${indeterminate ? RING_C*0.8 : RING_C*(1-pct/100)}"/></svg><div class="pct">${indeterminate ? '…' : Math.round(pct)+'%'}<small>${esc(stageShort)}</small></div></div><div class="stage">${esc(j.stage_label||'')}</div></div>
-      <div><h2>${title}</h2><p class="sub" style="margin-bottom:12px"><b>${esc(j.title||'')}</b> · ${esc(j.label||'')}${j.elapsed ? ` · ${fmtEta(j.elapsed)} decorridos` : ''}</p>${est ? `<p class="small muted" style="margin:0 0 12px">${est}. Você pode preparar outra tarefa enquanto espera: a fila continua rodando.</p>` : ''}<div class="timeline">${stages}</div>${j.warning ? `<div class="note warn">${esc(j.warning)}</div>` : ''}</div></div>`;
   }
   function renderDownloadProc(j){
     const card = $('#procCard');
@@ -1160,9 +1032,9 @@
     const overall = total ? ((done + (cur && cur.percent ? cur.percent/100 : 0)) / total * 100) : 0;
     const waiting = j.status === 'queued';
     const headNote = waiting ? `<p class="sub" style="margin:6px 0 0">Aguardando ${j.ahead||0} ${j.ahead===1?'download terminar':'downloads terminarem'}. Começa automaticamente. Enquanto isso, você pode preparar outro link.</p>` : '';
-    card.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0">${waiting ? '⏳ Na fila…' : (j.mode === 'video' ? '🎬 Baixando vídeo…' : '🎵 Baixando áudio…')}</h2><span class="badge acc">${done} de ${total} concluídos</span></div>${headNote}
+    card.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0">${waiting ? '⏳ Na fila…' : (j.source_id ? 'Convertendo arquivo…' : j.mode === 'video' ? '🎬 Baixando vídeo…' : '🎵 Baixando áudio…')}</h2><span class="badge acc">${done} de ${total} concluídos</span></div>${headNote}
       <p class="sub" style="margin:6px 0 0"><b>${esc(j.title||'')}</b> · ${esc(j.label||'')}${j.elapsed ? ` · ${fmtEta(j.elapsed)} decorridos` : ''}</p>
-      ${j.trim ? `<div class="small muted" style="margin-top:6px">✂️ Trecho de ${fmtDur(j.trim.start)} a ${fmtDur(j.trim.end)}: primeiro o arquivo completo é baixado, depois cortado.</div>` : ''}
+      ${j.trim ? `<div class="small muted" style="margin-top:6px">✂️ Trecho de ${fmtDur(j.trim.start)} a ${fmtDur(j.trim.end)}.</div>` : ''}
       <div class="bar ${waiting ? '' : 'striped'}" style="margin-top:14px"><i style="width:${overall.toFixed(1)}%"></i></div>
       ${cur ? `<div class="cur"><img src="${esc(cur.thumbnail||'')}" alt=""><div>
         <div class="ct">${esc(cur.title||'')}</div><div class="cs">${esc(cur.stage||'')}</div>
@@ -1194,7 +1066,7 @@
     if(S.step === 4 || S.step === 5){ renderResult(j); if(S.step !== 5) goto(5); }
   }
 
-  // ---------- etapa 5: resultado + mixer ----------
+  // ---------- etapa 5: resultado ----------
   function confetti(card){
     const colors = ['#ff4f7b','#7c5cff','#22d3ee','#34d399','#fbbf24'];
     for(let i=0;i<36;i++){ const c = document.createElement('i'); c.className = 'confetti'; c.style.left = Math.random()*100+'%'; c.style.background = colors[i%colors.length]; c.style.animationDelay = (Math.random()*.6)+'s'; c.style.animationDuration = (1.4+Math.random())+'s'; card.appendChild(c); setTimeout(()=>c.remove(), 3000); }
@@ -1202,30 +1074,23 @@
   async function renderResult(j){
     clearResultPlayers();
     const card = $('#resultCard');
-    if(S.mixer){ S.mixer.destroy(); S.mixer = null; }
     const files = j.files || [];
     if(j.status !== 'done' && !files.length){
       const cancelled = j.status === 'cancelled';
       card.innerHTML = `<div class="result-head"><div class="big ${cancelled?'warn':'err'}">${cancelled?'✋':'❌'}</div><div><h2 style="margin:0">${cancelled ? 'Tarefa cancelada' : 'Não deu certo'}</h2><p class="sub" style="margin:4px 0 0">${esc(j.title||'')} · ${esc(j.label||'')}</p></div></div>${j.error ? `<div class="note err">${esc(j.error)}</div>` : ''}${(j.items||[]).length > 1 ? `<div class="jobs">${j.items.map(itemJobRow).join('')}</div>` : ''}`;
       $('#resultActions').innerHTML = `<button class="btn ghost" id="newBtn">↺ Nova tarefa</button><div class="right"><button class="btn primary" id="retryBtn">↻ Tentar novamente</button></div>`;
       $('#newBtn').addEventListener('click', resetToStart);
-      $('#retryBtn').addEventListener('click', () => retryJob(j));
+      $('#retryBtn').addEventListener('click', () => retryFailed(j, true));
       resize(); return;
     }
-    if(j.kind === 'download') renderDownloadResult(j); else await renderStemsResult(j);
+    renderDownloadResult(j);
     resize();
-  }
-  function retryJob(j){
-    if(j.kind === 'download'){ retryFailed(j, true); return; }
-    if(j.kind === 'mix'){ viewJob(j.parent_id); return; }
-    const src = currentSource();
-    if(src && (src.source_id || src.id) === j.source_id){ S.action = 'separate'; renderActions(); goto(3); } else resetToStart();
   }
   async function retryFailed(j, all){
     const errs = (j.items||[]).filter(i => all ? i.status !== 'done' : i.status === 'error');
     if(!errs.length) return resetToStart();
     const items = errs.map(i => ({id:i.id, url:i.url, title:i.title, thumbnail:i.thumbnail}));
-    const r = await api('start_job', { kind:'download', items, mode: j.mode, height: j.height, audio_format: j.audio_format, audio_quality: j.audio_quality, embed_meta: j.embed_meta, save_drive: j.save_drive, folder: j.folder, trim: items.length === 1 ? j.trim : null, title: j.title + ' (nova tentativa)' });
+    const r = await api('start_job', { kind:'download', source_id:j.source_id, items, mode: j.mode, height: j.height, audio_format: j.audio_format, audio_quality: j.audio_quality, embed_meta: j.embed_meta, save_drive: j.save_drive, folder: j.folder, trim: items.length === 1 ? j.trim : null, title: j.title + ' (nova tentativa)' });
     if(!r.ok) return toast(r.error, 'err'); S.jobId = r.job_id; renderProc(null); goto(4); poll(); startQueuePolling();
   }
   function driveSummary(job, files){
@@ -1242,50 +1107,12 @@
       ${done.length ? `<div class="note info" style="margin-top:14px">Clique em <b>Baixar</b> para salvar cada arquivo no seu computador${done.length>1?', ou use <b>Baixar tudo (.zip)</b>':''}. Os arquivos ficam neste servidor só enquanto a sessão do Colab estiver ativa.</div>` : ''}
       ${j.warning ? `<div class="note warn">${esc(j.warning)}</div>` : ''}
       <div class="jobs">${items.map(itemJobRow).join('')}</div>${previewMarkup(j.files || [], true)}`;
-    const single = items.length === 1 && done.length === 1 && S.analysis && S.analysis.video && S.analysis.video.id === items[0].id && S.cfg.separator && !S.analysis.video.too_long;
-    $('#resultActions').innerHTML = `<button class="btn ghost" id="newBtn">↺ Nova tarefa</button><div class="right">${single ? '<button class="btn" id="sepBtn">🎧 Separar faixas desta música</button>' : ''}${done.length>1 ? '<button class="btn" id="zipBtn">🗜 Baixar tudo (.zip)</button>' : ''}${errs.length ? '<button class="btn" id="retryBtn">↻ Tentar novamente os que falharam</button>' : ''}</div>`;
+    $('#resultActions').innerHTML = `<button class="btn ghost" id="newBtn">↺ Nova tarefa</button><div class="right">${done.length>1 ? '<button class="btn" id="zipBtn">🗜 Baixar tudo (.zip)</button>' : ''}${errs.length ? '<button class="btn" id="retryBtn">↻ Tentar novamente os que falharam</button>' : ''}</div>`;
     $('#newBtn').addEventListener('click', resetToStart);
-    const sb = $('#sepBtn'); if(sb) sb.addEventListener('click', () => { S.choice = 'video'; S.action = 'separate'; renderActions(); goto(3); });
     const zb = $('#zipBtn'); if(zb) zb.addEventListener('click', async () => { busy(zb, true, 'Compactando…'); const r = await api('zip_job', j.id); busy(zb, false); if(!r.ok) return toast(r.error, 'err'); toast(`ZIP pronto (${r.size_label}).`, 'ok'); downloadRel(r.rel, zb); });
     const rb = $('#retryBtn'); if(rb) rb.addEventListener('click', () => retryFailed(j, false));
     mountResultPlayers(j.files || []);
     if(kind === 'ok') confetti(card);
-  }
-  async function renderStemsResult(j){
-    const card = $('#resultCard');
-    const files = j.files || [];
-    const sep = j.kind === 'separate';
-    card.innerHTML = `<div class="result-head"><div class="big">🎉</div><div><h2 style="margin:0">${sep ? 'Faixas prontas!' : 'Mixagem pronta!'}</h2><p class="sub" style="margin:4px 0 0"><b>${esc(j.title||'')}</b> · ${esc(j.label||'')}${j.elapsed ? ` · levou ${fmtEta(j.elapsed)}` : ''}${driveSummary(j, files)}</p></div></div>
-      ${j.warning ? `<div class="note warn">${esc(j.warning)}</div>` : ''}
-      ${sep ? `<div class="note info" style="margin-top:16px">Ouça o resultado no <b>mixer</b>: silencie (M) ou isole (S) cada faixa e ajuste o volume. Baixe as faixas separadas ou use <b>Renderizar mixagem</b> para juntar as faixas audíveis em um único áudio. A faixa Original serve apenas para comparação e nunca entra na mixagem.</div>
-      <div class="transport" style="margin-top:14px"><button class="playbtn" id="mxPlay" title="Tocar / pausar">▶</button><div><input type="range" class="seek" id="mxSeek" min="0" max="1000" value="0"><div class="row" style="justify-content:space-between;margin-top:4px"><span class="time" id="mxCur">0:00</span><span class="time" id="mxDur">${fmtDur(j.duration)}</span></div></div><span class="badge" id="mxState">carregando…</span></div>` : ''}
-      <div class="stems" id="stemList"></div>
-      ${previewMarkup(files, !sep)}
-      ${sep ? `<div class="note info"><b>Mixagem personalizada</b><p id="mixSummary" aria-live="polite"></p><div class="row" style="flex-wrap:wrap;gap:12px"><label>Formato <select id="mixFormat"><option value="wav">WAV</option><option value="flac">FLAC</option><option value="mp3">MP3 · 320 kbps</option></select></label>${S.cfg.drive ? `<label><input type="checkbox" id="mixDrive" ${j.save_drive ? 'checked' : ''}> Salvar também no Drive</label>` : ''}<button class="btn primary" id="mixBtn">🎛 Renderizar mixagem</button></div><p class="small" style="margin:8px 0 0">Respeita M, Solo e volumes. O limitador protege a soma contra picos excessivos.</p></div>` : ''}`;
-    const list = $('#stemList');
-    const rows = files.map(f => ({...f}));
-    if(sep && j.original_preview) rows.push({stem:'Original', label:'Original', icon:'💿', color:'#e2e8f0', preview:j.original_preview, rel:null, original:true});
-    list.innerHTML = rows.map((f, i) => `<div class="stem ${f.original?'muted':''}" style="--c:${f.color}" data-i="${i}"><div class="ico">${f.icon}</div><div><div class="nm">${esc(f.label)}${f.original ? '<span class="badge">para comparar</span>' : `<span class="badge">${esc(f.size_label||'')}</span>`}${f.drive_path ? '<span class="badge ok">Drive</span>' : ''}</div><div class="fi">${esc(f.file || 'música original (prévia)')}</div></div><div class="ctl">${sep ? `<div class="meter"><i></i><i></i><i></i><i></i></div><button class="mbtn m ${f.original?'on':''}" data-mute="${i}" title="Silenciar">M</button><button class="mbtn s" data-solo="${i}" title="Solo (ouvir só esta)">S</button><input type="range" class="vol" data-vol="${i}" min="0" max="100" value="100">` : ''}${f.rel ? `<button class="btn sm primary" data-dl="${esc(f.rel)}">⬇ Baixar</button>` : ''}</div></div>`).join('');
-    $('#resultActions').innerHTML = `<button class="btn ghost" id="newBtn">↺ Nova tarefa</button><div class="right">${sep && currentSource() && (currentSource().source_id || currentSource().id) === j.source_id ? '<button class="btn" id="againBtn">🔀 Separar de outro jeito</button>' : ''}${j.kind === 'mix' ? '<button class="btn" id="backStemsBtn">🎛 Voltar às faixas</button>' : ''}${files.length > 1 ? '<button class="btn" id="zipBtn">🗜 Baixar tudo (.zip)</button>' : ''}</div>`;
-    $('#newBtn').addEventListener('click', resetToStart);
-    const ab = $('#againBtn'); if(ab) ab.addEventListener('click', () => { S.action = 'separate'; renderActions(); goto(3); });
-    const zb = $('#zipBtn'); if(zb) zb.addEventListener('click', async () => { busy(zb, true, 'Compactando…'); const r = await api('zip_job', j.id); busy(zb, false); if(!r.ok) return toast(r.error, 'err'); toast(`ZIP pronto (${r.size_label}).`, 'ok'); downloadRel(r.rel, zb); });
-    mountResultPlayers(files);
-    confetti(card); resize();
-    if(sep) S.mixer = await buildMixer(rows, j.duration);
-    const backStems = $('#backStemsBtn'); if(backStems) backStems.addEventListener('click', () => viewJob(j.parent_id));
-    const mixBtn = $('#mixBtn'); if(mixBtn) mixBtn.addEventListener('click', async () => {
-      const tracks = S.mixer ? S.mixer.selection() : [];
-      if(!tracks.length) return toast('Deixe ao menos uma faixa audível, com volume acima de zero.', 'warn');
-      busy(mixBtn, true, 'Preparando mixagem…');
-      try {
-        const r = await api('mix_job', j.id, tracks, $('#mixFormat').value, !!$('#mixDrive')?.checked);
-        if(!r.ok) throw new Error(r.error);
-        if(S.mixer){ S.mixer.destroy(); S.mixer = null; }
-        S.jobId = r.job_id; renderProc(null); goto(4); poll(); startQueuePolling();
-      } catch(e){ toast(e.message, 'err'); }
-      finally { busy(mixBtn, false); }
-    });
   }
   function clearResultPlayers(){
     (S.resultPlayers || []).forEach(p => p.destroy()); S.resultPlayers = [];
@@ -1370,7 +1197,7 @@
     listen(audio,'ended',()=>{status.textContent='Reprodução concluída.';});
     listen(play,'click',async()=>{
       if(!audio.paused){ audio.pause(); return; }
-      (S.resultPlayers||[]).forEach(p=>p.pause()); if(S.mixer) S.mixer.pause();
+      (S.resultPlayers||[]).forEach(p=>p.pause());
       try { if(audio.ended) audio.currentTime=0; await audio.play(); }
       catch(e){ if(!destroyed){status.textContent='Não foi possível iniciar. Clique em reproduzir novamente.';} }
     });
@@ -1382,68 +1209,8 @@
     if(panel.open) start();
     return {pause(){audio.pause();},destroy(){destroyed=true;generation++;events.forEach(([t,e,f])=>t.removeEventListener(e,f));release();}};
   }
-  async function buildMixer(rows, duration){
-    const audios = []; let ready = 0, destroyed = false; const withPrev = rows.map((f, i) => ({f, i})).filter(x => x.f.preview || !x.f.original);
-    for(const {f, i} of withPrev){
-      const a = new Audio(); a.preload = 'auto'; a.volume = 1; a.muted = !!f.original;
-      audios.push({a, i, muted: !!f.original, solo:false, vol:1, rel: f.preview, viaB64:false});
-    }
-    // Carrega cada prévia: primeiro pelo proxy de portas do Colab; se não responder em 8 s (ou der erro),
-    // busca o áudio em base64 pela ponte do Colab (mais lento e sujeito aos limites da ponte).
-    async function loadViaB64(x){
-      if(destroyed || x.viaB64) return; x.viaB64 = true;
-      try{ const r = await api('preview_b64', x.rel); if(!r.ok) throw new Error(r.error); if(destroyed) return; x.a.src = `data:${r.mime};base64,${r.b64}`; x.a.load(); }
-      catch(e){ x.failed = true; }
-    }
-    audios.forEach(x => {
-      if(!x.rel){ x.failed = true; return; }
-      let settled = false;
-      x.a.addEventListener('canplay', () => { settled = true; }, {once:true});
-      x.a.addEventListener('error', () => { if(!settled && !x.viaB64) loadViaB64(x); }, {once:true});
-      setTimeout(() => { if(!settled && !x.viaB64) loadViaB64(x); }, 8000);
-      fileUrl(x.rel).then(u => { if(!destroyed && !x.viaB64){ x.a.src = u; x.a.load(); } }).catch(() => loadViaB64(x));
-    });
-    const play = $('#mxPlay'), seek = $('#mxSeek'), cur = $('#mxCur'), state = $('#mxState');
-    const master = audios[0] ? audios[0].a : null;
-    let playing = false, seeking = false, dur = duration || 0;
-    const list = $('#stemList');
-    function selection(){
-      const anySolo = audios.some(x => x.solo);
-      return audios.filter(x => !rows[x.i].original && (anySolo ? x.solo : !x.muted) && x.vol > 0).map(x => ({stem: rows[x.i].stem, gain: x.vol}));
-    }
-    function applyGains(){
-      const anySolo = audios.some(x => x.solo);
-      audios.forEach(x => { const audible = anySolo ? x.solo : !x.muted; x.a.muted = !audible; x.a.volume = x.vol; const row = list.querySelector(`.stem[data-i="${x.i}"]`); if(row){ row.classList.toggle('muted', !audible); row.classList.toggle('playing', playing && audible); } });
-      list.querySelectorAll('[data-mute]').forEach(b => b.classList.toggle('on', !!audios.find(x => x.i == b.dataset.mute)?.muted));
-      list.querySelectorAll('[data-solo]').forEach(b => b.classList.toggle('on', !!audios.find(x => x.i == b.dataset.solo)?.solo));
-      const selected = selection();
-      const summary = $('#mixSummary'); if(summary) summary.textContent = selected.length ? 'Incluir: ' + selected.map(t => (rows.find(r => r.stem === t.stem)?.label || t.stem) + ' (' + Math.round(t.gain * 100) + '%)').join(', ') : 'Nenhuma faixa selecionada. Desative M ou Solo no Original e aumente o volume de uma faixa.';
-      const button = $('#mixBtn'); if(button) button.disabled = !selected.length;
-    }
-    list.addEventListener('click', e => {
-      const m = e.target.closest('[data-mute]'), s = e.target.closest('[data-solo]');
-      if(m){ const x = audios.find(x => x.i == m.dataset.mute); if(x){ x.muted = !x.muted; applyGains(); } }
-      if(s){ const x = audios.find(x => x.i == s.dataset.solo); if(x){ x.solo = !x.solo; applyGains(); } }
-    });
-    list.addEventListener('input', e => { const v = e.target.closest('[data-vol]'); if(!v) return; const x = audios.find(x => x.i == v.dataset.vol); if(x){ x.vol = v.value/100; v.style.setProperty('--p', v.value+'%'); applyGains(); } });
-    function sync(){ if(!master) return; audios.forEach(x => { if(x.a !== master && Math.abs(x.a.currentTime - master.currentTime) > 0.12) x.a.currentTime = master.currentTime; }); }
-    async function doPlay(){ (S.resultPlayers || []).forEach(p => p.pause()); if(!master || destroyed) return; if(ready < audios.length){ toast('Aguarde todas as prévias carregarem antes de reproduzir.', 'info', 4000); return; } play.disabled = true; try { sync(); const result = await Promise.allSettled(audios.map(x => x.a.play())); if(destroyed || result.some(r => r.status === 'rejected')){ doPause(); if(!destroyed) toast('Não foi possível reproduzir todas as faixas. Tente novamente ou baixe os arquivos.', 'err'); return; } playing = true; play.textContent = '❚❚'; state.textContent = 'tocando'; applyGains(); } finally { play.disabled = false; } }
-    function doPause(){ audios.forEach(x => x.a.pause()); playing = false; play.textContent = '▶'; state.textContent = 'pausado'; applyGains(); }
-    play.addEventListener('click', () => playing ? doPause() : doPlay());
-    if(master){
-      master.addEventListener('timeupdate', () => { if(seeking) return; const d = master.duration || dur; if(d) { seek.value = Math.round(master.currentTime / d * 1000); seek.style.setProperty('--p', (master.currentTime/d*100)+'%'); } cur.textContent = fmtDur(master.currentTime); if(playing && (master.currentTime|0) % 3 === 0) sync(); });
-      master.addEventListener('ended', () => { doPause(); audios.forEach(x => x.a.currentTime = 0); });
-      master.addEventListener('loadedmetadata', () => { dur = master.duration || dur; $('#mxDur').textContent = fmtDur(dur); });
-      audios.forEach(x => { x.a.addEventListener('canplay', () => { ready++; if(ready >= audios.length){ state.textContent = 'pronto'; state.className = 'badge ok'; } else state.textContent = `carregando ${ready}/${audios.length}…`; }, {once:true}); });
-      setTimeout(() => { if(ready < audios.length && state.textContent.startsWith('carregando')){ state.textContent = 'carregando pela ponte do Colab…'; } }, 9000);
-    }
-    seek.addEventListener('input', () => { seeking = true; const d = master && (master.duration || dur); if(d) cur.textContent = fmtDur(seek.value/1000*d); seek.style.setProperty('--p', (seek.value/10)+'%'); });
-    seek.addEventListener('change', () => { const d = master && (master.duration || dur); if(d){ const t = seek.value/1000*d; audios.forEach(x => x.a.currentTime = t); } seeking = false; });
-    applyGains();
-    return { selection, pause: doPause, destroy(){ destroyed = true; doPause(); audios.forEach(x => { x.a.src = ''; x.a.load(); }); } };
-  }
   root.addEventListener('click', e => { const b = e.target.closest('[data-dl]'); if(b && !b.disabled) downloadRel(b.dataset.dl, b); });
-  function resetToStart(){ clearResultPlayers(); if(S.mixer){ S.mixer.destroy(); S.mixer = null; } S.jobId = null; S.source = null; S.analysis = null; S.choice = null; resetSelection(); $('#urlInput').value = ''; S.maxStep = 1; stopWatchModels(); goto(1); $$('.step').forEach(s=>s.classList.remove('done')); $('#urlInput').focus(); }
+  function resetToStart(){ clearResultPlayers(); S.jobId = null; S.source = null; S.analysis = null; S.choice = null; resetSelection(); $('#urlInput').value = ''; S.maxStep = 1; goto(1); $$('.step').forEach(s=>s.classList.remove('done')); $('#urlInput').focus(); }
 
   // ---------- fila (visível em todas as etapas) ----------
   function startQueuePolling(){ if(S.queueTimer) return; pollQueue(); S.queueTimer = setInterval(pollQueue, 1500); }
@@ -1460,20 +1227,19 @@
     });
     if(!r.active){ clearInterval(S.queueTimer); S.queueTimer = null; }
   }
-  const KIND_ICON = {download:'⬇', separate:'🎧', mix:'🎛'};
   function renderQueue(jobs){
     const bar = $('#queueBar'), list = $('#queueList');
     if(!jobs.length){ bar.hidden = true; return; }
     bar.hidden = false;
     const active = jobs.filter(j => j.status === 'queued' || j.status === 'running').length;
     $('#queueCount').textContent = active ? `${active} em andamento` : 'tudo concluído';
-    $('#queueHint').textContent = active ? 'Downloads e separações rodam em paralelo. Você pode preparar outra tarefa enquanto isso.' : 'Clique em Ver para ouvir e baixar.';
+    $('#queueHint').textContent = active ? 'Você pode preparar outra tarefa enquanto a fila avança.' : 'Clique em Ver para ouvir e baixar.';
     list.innerHTML = jobs.slice(-8).reverse().map(j => {
       const st = j.status === 'running' ? 'run' : (j.status === 'queued' ? '' : (j.status === 'done' ? (j.errors ? 'warn' : 'done') : (j.status === 'error' ? 'err' : 'warn')));
       const icon = j.status === 'running' ? '' : (j.status === 'queued' ? '…' : (j.status === 'done' ? (j.errors ? '!' : '✓') : (j.status === 'error' ? '!' : '–')));
       const sub = j.status === 'queued' ? 'Na fila, aguardando' : (j.status === 'running' ? esc(j.stage_label||'') + (j.kind === 'download' && j.detail ? ' · ' + esc(j.detail) : '') : (j.status === 'done' ? `${j.files} arquivo(s) pronto(s)${j.errors ? ` · ${j.errors} com erro` : ''}` : (j.status === 'error' ? esc(j.error||'Erro') : 'Cancelado')));
       const viewing = S.jobId === j.id && (S.step === 4 || S.step === 5);
-      return `<div class="qjob ${viewing ? 'viewing' : ''}"><div class="st ${st}">${icon}</div><div><div class="ql" title="${esc(j.title)}">${KIND_ICON[j.kind]||''} ${esc(j.title||j.id)} <span class="muted" style="font-weight:500">· ${esc(j.label||'')}</span></div><div class="qs">${sub}</div></div><div class="bar ${j.status==='done' ? 'ok' : ''} ${j.status==='running' ? 'striped' : ''}"><i style="width:${j.status==='done'?100:j.percent}%"></i></div><button class="btn sm ${viewing ? 'ghost' : 'primary'}" data-view="${j.id}">${viewing ? 'Vendo' : 'Ver'}</button></div>`;
+      return `<div class="qjob ${viewing ? 'viewing' : ''}"><div class="st ${st}">${icon}</div><div><div class="ql" title="${esc(j.title)}">⬇ ${esc(j.title||j.id)} <span class="muted" style="font-weight:500">· ${esc(j.label||'')}</span></div><div class="qs">${sub}</div></div><div class="bar ${j.status==='done' ? 'ok' : ''} ${j.status==='running' ? 'striped' : ''}"><i style="width:${j.status==='done'?100:j.percent}%"></i></div><button class="btn sm ${viewing ? 'ghost' : 'primary'}" data-view="${j.id}">${viewing ? 'Vendo' : 'Ver'}</button></div>`;
     }).join('');
     resize();
   }

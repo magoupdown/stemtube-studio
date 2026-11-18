@@ -1,10 +1,8 @@
 """Servidor local de desenvolvimento: serve app.html com uma ponte HTTP que imita
 google.colab.kernel.invokeFunction, chamando o backend real.
 
-    STEMTUBE_MOCK=1 python src/dev_server.py [porta]
+    python src/dev_server.py [porta]
 
-Com STEMTUBE_MOCK=1 a separação é simulada com filtros do ffmpeg (sem GPU nem modelos).
-Sem a variável, o backend tenta usar o audio-separator de verdade, se estiver instalado.
 Os arquivos temporários ficam em src/stemtube_test/ (ignorado pelo git).
 """
 import sys, os, json, http.server, traceback
@@ -47,5 +45,5 @@ class H(http.server.BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8791
-    print(f'dev server on http://127.0.0.1:{port}  (file server on {ns["FILE_PORT"]}, mock={ns["MOCK"]}, separator={ns["SEP_AVAILABLE"]})', flush=True)
+    print(f'dev server on http://127.0.0.1:{port}  (file server on {ns["FILE_PORT"]})', flush=True)
     http.server.ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()

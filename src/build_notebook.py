@@ -4,7 +4,7 @@
 
 Células geradas:
   0. intro.md        → cabeçalho (markdown)
-  1. setup_cell.py   → login Google, Drive, GPU e dependências (form)
+  1. setup_cell.py   → login Google, Drive e dependências (form)
   2. backend.py + app.html → o aplicativo (form)
   3. cleanup_cell.py → limpeza opcional (form)
   4. outro.md        → sobre, solução de problemas e limites (markdown)
@@ -85,8 +85,7 @@ def cell(kind, src, **meta):
 nb = {
     'nbformat': 4, 'nbformat_minor': 0,
     'metadata': {
-        'colab': {'name': 'StemTube.ipynb', 'provenance': [], 'toc_visible': True, 'gpuType': 'T4'},
-        'accelerator': 'GPU',
+        'colab': {'name': 'StemTube.ipynb', 'provenance': [], 'toc_visible': True},
         'kernelspec': {'name': 'python3', 'display_name': 'Python 3'},
         'language_info': {'name': 'python'},
     },
