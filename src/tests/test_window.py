@@ -6,6 +6,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from threading import Event
+from zipfile import ZipFile
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -57,11 +59,13 @@ def run():
         ns['LEGACY_DRIVE_ROOTS'] = []
         browser = pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'), args=['--no-sandbox'])
         context = browser.new_context(viewport={'width': 1440, 'height': 900}, has_touch=True, is_mobile=True)
-        errors, downloads = [], []
+        errors = []
+        fail_next_chunk = False
         def invoke(name, args):
-            if name == 'colab_download':
-                downloads.append(Path(ns['_output_path'](args[0])))
-                data = {'ok': True}
+            nonlocal fail_next_chunk
+            if name == 'download_chunk' and args[1] > 0 and fail_next_chunk:
+                fail_next_chunk = False
+                data = {'ok': False, 'error': 'Interrupção de teste'}
             else:
                 data = ns['cb_' + name](*args).data
             return {'data': {'application/json': data}}
@@ -105,7 +109,7 @@ def run():
         assert len(context.pages) == 2
         app.set_viewport_size({'width':360,'height':780})
         wav = Path(tmp) / 'ensaio.wav'
-        subprocess.run(['ffmpeg','-v','error','-f','lavfi','-i','sine=duration=2', str(wav)], check=True)
+        subprocess.run(['ffmpeg','-v','error','-f','lavfi','-i','anoisesrc=duration=16:sample_rate=48000', str(wav)], check=True)
         app.locator('[data-src=file]').click()
         app.locator('#fileInput').set_input_files(wav)
         app.locator('#toOptionsBtn').click()
@@ -116,11 +120,45 @@ def run():
         expect(app.locator('#resultCard [data-dl]')).to_be_visible(timeout=60000)
         fit(app)
         expect(app.locator('.preview-play')).to_be_enabled(timeout=30000)
-        app.locator('#resultCard [data-dl]').first.click()
-        expect(app.locator('.toast').filter(has_text='Download enviado ao navegador.').last).to_be_visible()
-        assert downloads[-1].suffix == '.flac'
+        button = app.locator('#resultCard [data-dl]').first
+        source = Path(ns['_output_path'](button.get_attribute('data-dl')))
+        assert source.stat().st_size > 1024 * 1024
+        button.evaluate("""b => {
+          window.samples = [];
+          new MutationObserver(() => window.samples.push({
+            percent: parseFloat(b.style.getPropertyValue('--filled')),
+            hue: b.style.getPropertyValue('--fill-hue'), label:b.textContent, busy:b.disabled
+          })).observe(b,{childList:true});
+        }""")
+        fail_next_chunk = True
+        button.click()
+        expect(button).to_have_text('↻ Tentar baixar')
+        expect(button).to_be_enabled()
+        with app.expect_download() as audio_file:
+            button.click()
+        expect(button).to_have_text('✓ 100%')
+        assert audio_file.value.suggested_filename == source.name
+        assert audio_file.value.path().read_bytes() == source.read_bytes()
+        samples = app.evaluate('window.samples')
+        assert any(0 < s['percent'] < 100 and s['busy'] and str(s['percent'])+'%' in s['label'] for s in samples)
+        assert len({s['hue'] for s in samples}) >= 3
+        fit(app)
+        # Exercita o caminho de gravação em disco com um destino controlado.
+        button.evaluate('''b => {
+          b.dataset.size = String(64 * 1024 * 1024);
+          window.savedParts = [];
+          window.showSaveFilePicker = async () => ({createWritable: async () => ({
+            write: bytes => window.savedParts.push(bytes),
+            close: () => {window.savedSize = new Blob(window.savedParts).size;}
+          })});
+        }''')
+        button.click()
+        app.wait_for_function('window.savedSize > 0')
+        assert app.evaluate('window.savedSize') == source.stat().st_size
+        expect(button).to_have_text('✓ 100%')
         # A fonte de rede é substituída. A seleção, conversão de prévias e ZIP usam o fluxo real.
         ids = ['dQw4w9WgXcQ', 'dQw4w9WgXcR']
+        continue_download = Event()
         class PlaylistFixture:
             def __init__(self, opts):
                 self.opts = opts
@@ -135,6 +173,11 @@ def run():
                 if not download:
                     return {'_type':'playlist', 'id':'PLteste', 'title':'Repertório',
                             'entries':[{'id':v, 'title':'Aula '+v, 'duration':2} for v in ids]}
+                for hook in self.opts.get('progress_hooks', []):
+                    hook({'status':'downloading', 'total_bytes':100, 'downloaded_bytes':42,
+                          'info_dict':{'vcodec':'none'}})
+                if not continue_download.wait(15):
+                    raise RuntimeError('O teste não liberou o download.')
                 video_id = url[-11:]
                 target = Path(self.opts['outtmpl']).parent / (video_id + '.wav')
                 shutil.copyfile(wav, target)
@@ -155,9 +198,20 @@ def run():
             app.locator('[data-af=wav]').click()
             app.locator('#startBtn').click()
             app.locator('#modal [data-r="1"]').click()
-            app.locator('#zipBtn').click(timeout=30000)
-            app.wait_for_function("document.querySelector('#zipBtn') && !document.querySelector('#zipBtn').disabled")
-            assert downloads[-1].suffix == '.zip'
+            try:
+                start = app.locator('#procDownloadSlot #startBtn')
+                expect(start).to_have_text('Baixando áudio 42%')
+                expect(start).to_be_disabled()
+                fit(app)
+                app.set_viewport_size({'width':1440,'height':900})
+                fit(app)
+            finally:
+                continue_download.set()
+            with app.expect_download(timeout=60000) as archive:
+                app.locator('#zipBtn').click(timeout=30000)
+            expect(app.locator('#zipBtn')).to_have_text('✓ 100%')
+            with ZipFile(archive.value.path()) as saved:
+                assert len(saved.namelist()) == 2 and saved.testzip() is None
         # Um arquivo local concluído com falha de cópia no Drive.
         ns['STATE']['jobs']['drive_test'] = {
             'id':'drive_test', 'created':1, 'kind':'download', 'status':'done', 'title':'Ensaio',

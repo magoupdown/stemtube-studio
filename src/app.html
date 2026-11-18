@@ -141,6 +141,21 @@
   #stemtube .btn.sm { padding:8px 12px; font-size:12.5px; border-radius:10px; }
   #stemtube .btn.lg { padding:15px 28px; font-size:15px; border-radius:14px; }
   #stemtube .btn:disabled { opacity:.45; cursor:not-allowed; transform:none; filter:none; animation:none; }
+  #stemtube .btn.transfer {
+    position:relative; isolation:isolate; overflow:hidden; min-width:8.8em; max-width:100%;
+    background:#263349; color:white; border-color:#54627a; opacity:1; animation:none;
+    font-variant-numeric:tabular-nums;
+  }
+  #stemtube .btn.transfer:disabled { cursor:progress; }
+  #stemtube .btn.transfer::after {
+    content:""; position:absolute; z-index:-1; inset:0 auto 0 0; width:var(--filled);
+    background-color:hsl(var(--fill-hue), 68%, 30%);
+    background-image:repeating-linear-gradient(115deg, transparent 0 9px, #ffffff16 9px 16px);
+    background-size:36px 100%; transition:width .25s ease-out, background-color .35s linear;
+    pointer-events:none;
+  }
+  #stemtube .btn.transfer:disabled::after { animation:stFlow 1s linear infinite; }
+  @keyframes stFlow { to { background-position:36px 0; } }
   #stemtube .btn .spin, #stemtube .spin { width:16px; height:16px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; animation: stSpin .7s linear infinite; display:inline-block; }
   @keyframes stSpin { to { transform: rotate(360deg);} }
   #stemtube .hint { font-size:12.5px; color:var(--muted-2); margin-top:12px; }
@@ -538,11 +553,12 @@
         <div class="summary" id="summaryGrid"></div>
         <div class="mini-list" id="summaryList"></div>
       </div>
-      <div class="actions"><button class="btn ghost" data-back="2">← Voltar</button><div class="right"><button class="btn primary lg" id="startBtn">✨ Começar</button></div></div>
+      <div class="actions"><button class="btn ghost" data-back="2">← Voltar</button><div class="right" id="startSlot"><button class="btn primary lg" id="startBtn">✨ Começar</button></div></div>
     </section>
 
     <!-- ===== 4: PROCESSAR ===== -->
     <section data-step="4">
+      <div id="procDownloadSlot" style="margin-bottom:12px"></div>
       <div class="card" id="procCard"></div>
       <div class="actions" id="procActions"></div>
     </section>
@@ -628,16 +644,87 @@
     if(IS_COLAB){ const base = session ? await session.mediaBase(S.cfg.port) : await google.colab.kernel.proxyPort(S.cfg.port, {cache:true}); return base.replace(/\/?$/, '/') + path; }
     return 'http://127.0.0.1:' + S.cfg.port + '/' + path;
   }
-  async function downloadRel(rel, btn){
-    if(!IS_COLAB){ window.open(await fileUrl(rel), '_blank'); return; }
-    try{
-      if(btn) busy(btn, true, 'Enviando…');
-      toast('Preparando o download… o navegador vai salvar o arquivo em alguns segundos.', 'info', 6000);
-      const r = await api('colab_download', rel);
-      if(!r.ok) throw new Error(r.error);
-      toast('Download enviado ao navegador.', 'ok', 4000);
-    }catch(e){ toast('Não consegui iniciar o download: ' + e.message, 'err', 7000); }
-    finally{ if(btn) busy(btn, false); }
+  const transfers = new Map();
+  function paintDownload(button, state){
+    button.disabled = state.active;
+    button.classList.add('transfer');
+    button.style.setProperty('--filled', state.percent + '%');
+    button.style.setProperty('--fill-hue', String(Math.round(272 - state.percent * 1.16)));
+    button.textContent = state.label;
+    button.setAttribute('aria-busy', String(state.active));
+  }
+  function syncDownloads(container){
+    for(const button of container.querySelectorAll('[data-dl], [data-zip]')){
+      const state = transfers.get(button.dataset.dl || 'zip:' + button.dataset.zip);
+      if(state){
+        paintDownload(button, state);
+        const name = button.dataset.dl?.split('/').pop() || 'ZIP';
+        button.setAttribute('aria-label', (state.percent === 100 ? '100%, baixar novamente' : state.label) + ' · ' + name);
+      }
+    }
+  }
+  async function downloadRel(key, rel, sizeHint, zipJob){
+    if(transfers.get(key)?.active) return;
+    const state = {active:true, percent:0, label:''};
+    transfers.set(key, state);
+    function update(label, percent){
+      state.label = label; state.percent = percent;
+      syncDownloads(root);
+    }
+    let writer;
+    try {
+      update(zipJob ? 'Compactando…' : 'Baixando 0%', 0);
+      // Arquivos grandes podem ser gravados em disco à medida que chegam.
+      if(sizeHint >= 64 * 1024 * 1024 && typeof window.showSaveFilePicker === 'function'){
+        try {
+          const handle = await window.showSaveFilePicker({suggestedName:rel.split('/').pop()});
+          writer = await handle.createWritable();
+        } catch(e){ if(e.name !== 'SecurityError') throw e; }
+      }
+      if(zipJob){
+        const archive = await api('zip_job', zipJob);
+        if(!archive.ok) throw new Error(archive.error);
+        rel = archive.rel;
+        update('Baixando 0%', 0);
+      }
+      const parts = [];
+      let offset = 0, total = null, mime;
+      do {
+        const block = await api('download_chunk', rel, offset);
+        if(!block.ok) throw new Error(block.error);
+        const bytes = Uint8Array.fromBase64 ? Uint8Array.fromBase64(block.b64) :
+          Uint8Array.from(atob(block.b64), c => c.charCodeAt(0));
+        if(!Number.isSafeInteger(block.total) || block.total < 0 || block.offset !== offset ||
+           block.next_offset !== offset + bytes.length || block.next_offset > block.total ||
+           (!bytes.length && offset < block.total) || (total !== null && total !== block.total)){
+          throw new Error('O arquivo mudou ou a transferência foi interrompida.');
+        }
+        total = block.total; mime = block.mime;
+        if(writer) await writer.write(bytes);
+        else parts.push(new Blob([bytes]));
+        offset = block.next_offset;
+        if(offset < total){
+          const percent = Math.floor(100 * offset / total);
+          if(percent !== state.percent) update('Baixando ' + percent + '%', percent);
+        }
+      } while(offset < total);
+      if(writer){ await writer.close(); writer = null; }
+      else {
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(new Blob(parts, {type:mime}));
+        link.href = url; link.download = rel.split('/').pop();
+        document.body.append(link);
+        try { link.click(); } finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); }
+      }
+      state.active = false;
+      update('✓ 100%', 100);
+      toast('Transferência concluída. O arquivo foi entregue ao navegador.', 'ok');
+    } catch(e){
+      if(writer){ try { await writer.abort(); } catch(_){} }
+      state.active = false;
+      update(e.name === 'AbortError' ? (zipJob ? 'Baixar tudo (.zip)' : '⬇ Baixar') : '↻ Tentar baixar', 0);
+      if(e.name !== 'AbortError') toast('Falha ao baixar. ' + e.message, 'err', 7000);
+    }
   }
 
   // ---------- utilidades ----------
@@ -665,6 +752,15 @@
     else { btn.innerHTML = btn.dataset.label || btn.innerHTML; btn.disabled = false; }
   }
   function goto(n){
+    const start = $('#startBtn');
+    if(n === 4) $('#procDownloadSlot').append(start);
+    else if(start.parentElement.id === 'procDownloadSlot'){
+      $('#startSlot').append(start);
+      start.disabled = false;
+      start.classList.remove('transfer');
+      start.removeAttribute('aria-busy');
+      start.textContent = startLabel();
+    }
     S.step = n; S.maxStep = Math.max(S.maxStep, n);
     $$('section[data-step]').forEach(s => s.classList.toggle('on', +s.dataset.step === n));
     $$('.step').forEach(st => { const k = +st.dataset.go; st.classList.toggle('active', k===n); st.classList.toggle('done', k<n); });
@@ -922,7 +1018,7 @@
     if(!S.cfg.drive) S.saveDrive = false;
     $('#driveToggle .sw').classList.toggle('on', S.saveDrive); $('#folderBox').style.display = (S.saveDrive && dl) ? 'block' : 'none';
     if(S.choice === 'playlist' && !$('#folderInput').value) $('#folderInput').value = (S.analysis.playlist.title||'').slice(0,80);
-    $('#startBtn').innerHTML = S.choice === 'file' ? 'Converter arquivo' : (act === 'video' ? '⬇ Baixar vídeo' : '⬇ Baixar áudio');
+    $('#startBtn').textContent = startLabel();
     renderSummary(); resize();
   }
   function renderVideoQuality(){
@@ -1009,6 +1105,10 @@
     resize();
   }
 
+  function startLabel(){
+    if(S.choice === 'file') return 'Converter arquivo';
+    return S.action === 'video' ? '⬇ Baixar vídeo' : '⬇ Baixar áudio';
+  }
   $('#startBtn').addEventListener('click', async () => {
     const act = S.action; if(!act) return;
     const items = selectedItems(); const trim = currentTrim();
@@ -1029,17 +1129,19 @@
       if(r.ahead) toast(`Adicionado à fila: ${r.ahead} tarefa(s) na frente. Você pode preparar outra enquanto isso.`, 'info', 6000);
       renderProc(null); goto(4); poll(); startQueuePolling();
     } catch(e){ toast('Erro ao iniciar: ' + e.message, 'err', 8000); }
-    finally { busy(btn, false); }
+    finally { if(btn.parentElement.id === 'startSlot') busy(btn, false); }
   });
 
   // ---------- etapa 4: processamento ----------
   function renderProc(j){
     const card = $('#procCard');
     if(!j){
+      paintDownload($('#startBtn'), {active:true, percent:0, label:'Preparando…'});
       card.innerHTML = `<div class="loading"><div class="lring"></div><p>Preparando a tarefa…</p></div>`;
       $('#procActions').innerHTML = ''; resize(); return;
     }
     renderDownloadProc(j);
+    syncDownloads(card);
     $('#procActions').innerHTML = `<button class="btn ghost" id="anotherBtn">＋ Preparar outra</button><span class="small muted">Mantenha esta aba aberta até terminar.</span><div class="right"><button class="btn danger" id="cancelBtn">✕ Cancelar</button></div>`;
     $('#cancelBtn').addEventListener('click', async e => { if(!await confirmModal({title:'Cancelar esta tarefa?', text:'O processamento será interrompido. Arquivos já concluídos continuam disponíveis; o item em andamento é descartado.', ok:'Cancelar tarefa', cancel:'Continuar', danger:true})) return; busy(e.target, true, 'Cancelando'); await api('cancel_job', j.id); });
     $('#anotherBtn').addEventListener('click', () => { resetToStart(); });
@@ -1051,6 +1153,16 @@
     const cur = items.find(i => i.status==='downloading' || i.status==='processing') || items.find(i=>i.status==='queued');
     const overall = total ? ((done + (cur && cur.percent ? cur.percent/100 : 0)) / total * 100) : 0;
     const waiting = j.status === 'queued';
+    let label = waiting ? 'Na fila…' : (cur?.stage || 'Finalizando…');
+    let percent = 0;
+    if(cur && ((cur.status === 'downloading' && cur.total > 0) ||
+              (cur.status === 'processing' && cur.stage === 'Convertendo arquivo…'))){
+      percent = Math.min(100, Math.max(0, Math.floor(cur.percent || 0)));
+      label = label.replace(/…$/, '') + ' ' + percent + '%';
+    } else if(j.status === 'done' && items.length && items.every(item => item.status === 'done')){
+      label = '✓ 100%'; percent = 100;
+    }
+    paintDownload($('#startBtn'), {active:true, percent, label});
     const headNote = waiting ? `<p class="sub" style="margin:6px 0 0">Aguardando ${j.ahead||0} ${j.ahead===1?'download terminar':'downloads terminarem'}. Começa automaticamente. Enquanto isso, você pode preparar outro link.</p>` : '';
     card.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0">${waiting ? '⏳ Na fila…' : (j.source_id ? 'Convertendo arquivo…' : j.mode === 'video' ? '🎬 Baixando vídeo…' : '🎵 Baixando áudio…')}</h2><span class="badge acc">${done} de ${total} concluídos</span></div>${headNote}
       <p class="sub" style="margin:6px 0 0"><b>${esc(j.title||'')}</b> · ${esc(j.label||'')}${j.elapsed ? ` · ${fmtEta(j.elapsed)} decorridos` : ''}</p>
@@ -1067,7 +1179,7 @@
     const st = {queued:'', downloading:'run', processing:'run', done:'done', error:'err', cancelled:''}[i.status] || '';
     const icon = {done:'✓', error:'!', cancelled:'–', queued:'…'}[i.status] || '';
     const sub = i.status==='error' ? i.error : (i.status==='done' ? `${i.size_label||''}${i.warning?' · aviso: '+i.warning:''}${i.drive_path?' · salvo no Drive':''}` : i.stage);
-    const act = i.status==='done' && i.rel ? `<button class="btn sm primary" data-dl="${esc(i.rel)}" title="Salvar este arquivo no seu computador">⬇ Baixar</button>` : (i.status==='downloading' && i.percent ? `<span class="badge">${i.percent.toFixed(0)}%</span>` : '');
+    const act = i.status==='done' && i.rel ? `<button class="btn sm primary" data-dl="${esc(i.rel)}" data-size="${Number(i.size)||0}" title="Salvar este arquivo no seu computador">⬇ Baixar</button>` : (i.status==='downloading' && i.percent ? `<span class="badge">${i.percent.toFixed(0)}%</span>` : '');
     return `<div class="job"><div class="st ${st}">${icon}</div><div><div class="jt" title="${esc(i.title)}">${esc(i.title||i.id)}</div><div class="js ${i.status==='error'?'err':(i.warning?'warn':'')}">${esc(sub||'')}</div></div><div class="jr">${act}</div></div>`;
   }
   async function poll(){
@@ -1101,7 +1213,7 @@
       $('#resultActions').innerHTML = `<button class="btn ghost" id="newBtn">↺ Nova tarefa</button><div class="right"><button class="btn primary" id="retryBtn">↻ Tentar novamente</button></div>`;
       $('#newBtn').addEventListener('click', resetToStart);
       $('#retryBtn').addEventListener('click', () => retryFailed(j, true));
-      resize(); return;
+      syncDownloads(card); resize(); return;
     }
     renderDownloadResult(j);
     resize();
@@ -1129,7 +1241,13 @@
       <div class="jobs">${items.map(itemJobRow).join('')}</div>${previewMarkup(j.files || [], true)}`;
     $('#resultActions').innerHTML = `<button class="btn ghost" id="newBtn">↺ Nova tarefa</button><div class="right">${done.length>1 ? '<button class="btn" id="zipBtn">🗜 Baixar tudo (.zip)</button>' : ''}${errs.length ? '<button class="btn" id="retryBtn">↻ Tentar novamente os que falharam</button>' : ''}</div>`;
     $('#newBtn').addEventListener('click', resetToStart);
-    const zb = $('#zipBtn'); if(zb) zb.addEventListener('click', async () => { busy(zb, true, 'Compactando…'); const r = await api('zip_job', j.id); busy(zb, false); if(!r.ok) return toast(r.error, 'err'); toast(`ZIP pronto (${r.size_label}).`, 'ok'); downloadRel(r.rel, zb); });
+    const zb = $('#zipBtn');
+    if(zb){
+      zb.dataset.zip = j.id;
+      zb.addEventListener('click', () => downloadRel('zip:' + j.id, (j.folder || j.title || 'arquivos').replace(/[\\/:*?"<>|]/g, '_').slice(0,60) + '.zip',
+        done.reduce((size, item) => size + (item.size || 0), 0), j.id));
+    }
+    syncDownloads(root);
     const rb = $('#retryBtn'); if(rb) rb.addEventListener('click', () => retryFailed(j, false));
     mountResultPlayers(j.files || []);
     if(kind === 'ok') confetti(card);
@@ -1229,7 +1347,7 @@
     if(panel.open) start();
     return {pause(){audio.pause();},destroy(){destroyed=true;generation++;events.forEach(([t,e,f])=>t.removeEventListener(e,f));release();}};
   }
-  root.addEventListener('click', e => { const b = e.target.closest('[data-dl]'); if(b && !b.disabled) downloadRel(b.dataset.dl, b); });
+  root.addEventListener('click', e => { const b = e.target.closest('[data-dl]'); if(b && !b.disabled) downloadRel(b.dataset.dl, b.dataset.dl, Number(b.dataset.size)); });
   function resetToStart(){ clearResultPlayers(); S.jobId = null; S.source = null; S.analysis = null; S.choice = null; resetSelection(); $('#urlInput').value = ''; S.maxStep = 1; goto(1); $$('.step').forEach(s=>s.classList.remove('done')); $('#urlInput').focus(); }
 
   // ---------- fila (visível em todas as etapas) ----------

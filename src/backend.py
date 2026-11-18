@@ -1143,21 +1143,27 @@ def cb_preview_b64(rel):
     except Exception as e:
         return JSON({'ok': False, 'error': str(e)})
 
-def cb_preview_chunk(rel, offset=0):
-    """Transfere prévias em blocos pequenos quando o proxy do Colab falha."""
+def _read_file_chunk(rel, offset, *, preview):
+    import mimetypes
     try:
-        path = _output_path(rel, preview=True)
+        path = _output_path(rel, preview=preview)
         total = os.path.getsize(path)
         if isinstance(offset, bool) or not isinstance(offset, int) or not 0 <= offset <= total:
-            raise ValueError('Posição da prévia inválida.')
+            raise ValueError('Posição do arquivo inválida.')
         with open(path, 'rb') as stream:
             stream.seek(offset)
-            chunk = stream.read(512 * 1024)
+            chunk = stream.read(512 * 1024 if preview else 1024 * 1024)
         return JSON({'ok': True, 'b64': base64.b64encode(chunk).decode('ascii'),
                      'offset': offset, 'next_offset': offset + len(chunk), 'total': total,
-                     'mime': 'video/mp4' if path.endswith('.mp4') else 'audio/mpeg'})
+                     'mime': mimetypes.guess_type(path)[0] or 'application/octet-stream'})
     except Exception as e:
         return JSON({'ok': False, 'error': str(e)})
+
+def cb_preview_chunk(rel, offset=0):
+    return _read_file_chunk(rel, offset, preview=True)
+
+def cb_download_chunk(rel, offset=0):
+    return _read_file_chunk(rel, offset, preview=False)
 
 def cb_cleanup():
     try:
@@ -1254,7 +1260,7 @@ for _n, _f in {
     'bootstrap': cb_bootstrap, 'save_cookies': cb_save_cookies, 'clear_cookies': cb_clear_cookies, 'test_cookies': cb_test_cookies,
     'analyze': cb_analyze, 'upload_start': cb_upload_start, 'upload_chunk': cb_upload_chunk, 'upload_finish': cb_upload_finish,
     'start_job': cb_start_job, 'job_status': cb_job_status, 'jobs_list': cb_jobs_list, 'cancel_job': cb_cancel_job,
-    'zip_job': cb_zip_job, 'colab_download': cb_colab_download, 'cleanup': cb_cleanup,
+    'download_chunk': cb_download_chunk, 'zip_job': cb_zip_job, 'colab_download': cb_colab_download, 'cleanup': cb_cleanup,
     'preview_b64': cb_preview_b64, 'preview_chunk': cb_preview_chunk,
 }.items():
     _register(_n, _f)
