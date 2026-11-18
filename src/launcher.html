@@ -1,0 +1,39 @@
+<div id="studio-launcher" style="font:15px/1.5 system-ui,sans-serif;padding:12px">
+  <button type="button" style="background:#573ac0;color:white;border:0;border-radius:9px;padding:12px 18px;font:inherit;cursor:pointer">Abrir StemTube Studio em nova aba</button>
+  <p role="status" aria-live="polite">Mantenha este notebook aberto e a sessão conectada enquanto usa o Studio.</p>
+</div>
+<script>
+(() => {
+  const launcher = document.getElementById('studio-launcher');
+  const message = launcher.querySelector('[role=status]');
+  const page = __STUDIO_DOCUMENT__;
+  let tab;
+  launcher.querySelector('button').onclick = () => {
+    try {
+      if (tab && !tab.closed && tab.document.getElementById('stemtube')) {
+        tab.focus();
+        return;
+      }
+      const kernel = window.google?.colab?.kernel;
+      if (!kernel) throw new Error('A conexão com o Colab está indisponível.');
+      tab = window.open('', '_blank');
+      if (!tab) throw new Error('O navegador bloqueou a abertura da aba.');
+      tab.document.open();
+      tab.opener = null;
+      tab.stemTubeSession = Object.freeze({
+        invoke: (name, args) => kernel.invokeFunction('stemtube.' + name, args, {}),
+        mediaBase: port => kernel.proxyPort(port, {cache:true}),
+        connected: () => launcher.isConnected && !window.closed
+      });
+      tab.document.write(page);
+      tab.document.close();
+      message.textContent = 'Studio aberto. Mantenha este notebook conectado. Este botão também reabre o aplicativo.';
+    } catch (error) {
+      // Uma aba que já navegou para outro site não pertence mais ao Studio.
+      try { if (tab && tab.location.href === 'about:blank') tab.close(); } catch (_) {}
+      tab = null;
+      message.textContent = error.message + ' Permita pop-ups e tente novamente, ou desmarque abrir_em_nova_aba e execute a célula 2.';
+    }
+  };
+})();
+</script>

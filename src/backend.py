@@ -6,13 +6,13 @@
 #  Reúne, em um único aplicativo:
 #    • download de vídeos, playlists e canais do YouTube (MP4 ou áudio)
 #    • recorte por tempo de um vídeo
-#    • separação de voz e instrumentos por IA (audio-separator)
-#    • mixer e renderização de mixagens
 #
 #  Desenvolvido por @emersonms - 2026
 # ============================================================
 import os, re, json, time, uuid, shutil, threading, socketserver, http.server
 import urllib.parse, traceback, queue, subprocess, base64, sys, math, tempfile
+
+import zipfile
 
 import yt_dlp
 from IPython.display import JSON
@@ -24,48 +24,24 @@ APP_VERSION = '1.0.0'
 BASE_DIR      = '/content/stemtube'
 WORK_DIR      = os.path.join(BASE_DIR, 'work')       # áudio de origem (wav) e uploads
 OUT_DIR       = os.path.join(BASE_DIR, 'out')        # resultados por tarefa (servidos ao navegador)
-MODELS_DIR    = os.path.join(BASE_DIR, 'models')     # modelos de IA baixados
 COOKIES_PATH  = os.path.join(BASE_DIR, 'cookies.txt')
 DRIVE_MYDRIVE = '/content/drive/MyDrive'
 DRIVE_ROOT    = os.path.join(DRIVE_MYDRIVE, 'StemTube')
 LEGACY_DRIVE_ROOTS = [os.path.join(DRIVE_MYDRIVE, 'StemLab'), os.path.join(DRIVE_MYDRIVE, 'YT_Downloader')]
 FILE_PORT     = 8767
 MAX_UPLOAD_MB = 1024
-MAX_DURATION  = 25 * 60   # 25 min: acima disso a GPU gratuita costuma estourar a memória na separação
 MAX_PLAYLIST  = 1000
-MOCK          = bool(os.environ.get('STEMTUBE_MOCK'))  # modo de teste local sem GPU/modelos
-for _d in (WORK_DIR, OUT_DIR, MODELS_DIR):
+for _d in (WORK_DIR, OUT_DIR):
     os.makedirs(_d, exist_ok=True)
 
-try:
-    import audio_separator as _audio_separator
-    SEP_AVAILABLE = True
-except Exception:
-    SEP_AVAILABLE = MOCK
-
+if globals().get('_STEMTUBE_STATE') and 'download_queue' not in _STEMTUBE_STATE:
+    raise RuntimeError('Há uma versão anterior em execução. Salve seus resultados e abra uma nova sessão para usar o conversor.')
 STATE = globals().get('_STEMTUBE_STATE') or {
     'jobs': {}, 'sources': {}, 'uploads': {},
     'user': globals().get('USER_EMAIL') or 'Conta Google conectada',
-    'js_runtime': None, 'gpu': None, 'prefetch': {},
+    'js_runtime': None,
 }
 _STEMTUBE_STATE = STATE
-MODEL_LOCK = STATE.setdefault('model_lock', threading.Lock())
-
-# ---------- modos de separação ----------
-STEM_PT = {'Vocals': 'Voz', 'Instrumental': 'Playback', 'Drums': 'Bateria', 'Bass': 'Baixo',
-           'Guitar': 'Guitarra', 'Piano': 'Piano', 'Other': 'Outros'}
-STEM_ICON = {'Vocals': '🎤', 'Instrumental': '🎹', 'Drums': '🥁', 'Bass': '🎸', 'Guitar': '🎸', 'Piano': '🎹', 'Other': '🎼'}
-STEM_COLOR = {'Vocals': '#f472b6', 'Instrumental': '#38bdf8', 'Drums': '#fb923c', 'Bass': '#a78bfa',
-              'Guitar': '#facc15', 'Piano': '#34d399', 'Other': '#94a3b8'}
-MODES = {
-    '2stem': {'label': 'Voz + Playback', 'model': 'model_bs_roformer_ep_317_sdr_12.9755.ckpt',
-              'stems': ['Vocals', 'Instrumental'], 'factor': 1.2, 'base': 30},
-    '4stem': {'label': 'Banda (4 faixas)', 'model': 'htdemucs_ft.yaml',
-              'stems': ['Vocals', 'Drums', 'Bass', 'Other'], 'factor': 1.2, 'base': 40},
-    '6stem': {'label': 'Completo (6 faixas)', 'model': 'htdemucs_6s.yaml',
-              'stems': ['Vocals', 'Drums', 'Bass', 'Guitar', 'Piano', 'Other'], 'factor': 0.5, 'base': 30},
-}
-OUT_FORMATS   = {'wav': 'WAV', 'flac': 'FLAC', 'mp3': 'MP3'}
 AUDIO_FORMATS = ('mp3', 'm4a', 'opus', 'flac', 'wav', 'best')
 AUDIO_QUALITIES = ('best', '320', '256', '192', '128', '96')
 UPLOAD_EXTS   = ('.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.aiff', '.aif', '.mp4', '.webm', '.mkv', '.mov')
@@ -88,20 +64,6 @@ def _detect_js_runtime():
     STATE['js_runtime'] = rt
     return rt
 
-def _gpu_info(force=False):
-    if STATE['gpu'] is not None and not force:
-        return STATE['gpu']
-    info = {'available': False, 'name': None, 'memory_gb': None, 'mock': MOCK}
-    try:
-        import torch
-        if torch.cuda.is_available():
-            p = torch.cuda.get_device_properties(0)
-            info.update({'available': True, 'name': p.name, 'memory_gb': round(p.total_memory / 1024 ** 3, 1)})
-    except Exception:
-        pass
-    STATE['gpu'] = info
-    return info
-
 def _friendly_error(msg):
     m = (msg or '').lower()
     if 'sign in to confirm' in m or 'not a bot' in m or ('bot' in m and 'confirm' in m):
@@ -123,8 +85,6 @@ def _friendly_error(msg):
         return 'O YouTube limitou as requisições (429). Aguarde alguns minutos ou use cookies.'
     if 'live' in m and ('is a live' in m or 'not yet' in m or 'premiere' in m):
         return 'Transmissões ao vivo ou estreias ainda não disponíveis não podem ser processadas.'
-    if 'out of memory' in m or 'cuda error' in m:
-        return 'A memória da GPU estourou. Tente uma música mais curta ou o modo "Voz + Playback".'
     return re.sub(r'^\s*ERROR:\s*', '', msg or 'Erro desconhecido').strip()[:400]
 
 class _SilentLogger:
@@ -429,20 +389,13 @@ def cb_test_cookies():
         return JSON({'ok': True, 'valid': False, 'message': _friendly_error(str(e))})
 
 # ---------- bootstrap ----------
-def _model_ready(model):
-    return model in STATE.setdefault('ready_models', set())
-
 def cb_bootstrap():
     try:
         migrated = _restore_cookies_from_drive()
         return JSON({'ok': True, 'app': APP_NAME, 'version': APP_VERSION, 'user': STATE['user'], 'drive': _drive_on(),
                      'cookies': _cookie_summary(), 'cookies_migrated_from': migrated,
                      'ytdlp': yt_dlp.version.__version__, 'js_runtime': next(iter(_detect_js_runtime()), None),
-                     'gpu': _gpu_info(), 'port': FILE_PORT, 'mock': MOCK, 'max_upload_mb': MAX_UPLOAD_MB,
-                     'max_duration': MAX_DURATION, 'separator': SEP_AVAILABLE,
-                     'modes': {k: {'label': v['label'], 'stems': v['stems'], 'factor': v['factor'], 'base': v['base'],
-                                   'ready': _model_ready(v['model'])} for k, v in MODES.items()},
-                     'stem_pt': STEM_PT, 'stem_icon': STEM_ICON, 'stem_color': STEM_COLOR})
+                     'port': FILE_PORT, 'max_upload_mb': MAX_UPLOAD_MB})
     except Exception as e:
         return JSON({'ok': False, 'error': str(e)})
 
@@ -497,18 +450,7 @@ def _summarize_video(info):
         'url': info.get('webpage_url') or f"https://www.youtube.com/watch?v={info.get('id')}",
         'resolutions': resolutions,
         'audio_formats': [{**a, 'size_label': _fmt_size(a['size'])} for a in auds],
-        'too_long': duration > MAX_DURATION,
     }
-
-def _register_youtube_source(v):
-    """Registra o vídeo analisado como fonte para a separação de faixas."""
-    src_id = uuid.uuid4().hex[:10]
-    STATE['sources'][src_id] = {
-        'id': src_id, 'kind': 'youtube', 'video_id': v['id'], 'title': v['title'], 'channel': v['channel'],
-        'duration': v['duration'], 'duration_str': v['duration_str'], 'thumbnail': v['thumbnail'], 'url': v['url'],
-        'wav': None, 'created': time.time(), 'too_long': v['too_long'],
-    }
-    return src_id
 
 def _summarize_entry(e, idx):
     vid = e.get('id')
@@ -557,7 +499,6 @@ def cb_analyze(url, mode='auto'):
             if not info:
                 raise RuntimeError('video unavailable')
             v = _summarize_video(info)
-            v['source_id'] = _register_youtube_source(v)
             result['video'] = v
         if parsed['playlist_url']:
             try:
@@ -612,38 +553,34 @@ def cb_upload_finish(up_id):
         if up['received'] != up['size']:
             os.remove(up['path'])
             raise ValueError(f'Envio incompleto ({_fmt_size(up["received"])} de {_fmt_size(up["size"])}). Tente novamente.')
-        dur = _ffprobe_duration(up['path'])
+        try:
+            probe = subprocess.run(['ffprobe', '-v', 'error', '-show_streams', '-show_format',
+                                    '-of', 'json', up['path']], check=True, capture_output=True, timeout=60)
+            media = json.loads(probe.stdout)
+            streams = media.get('streams', [])
+            video = next((v for v in streams if v['codec_type'] == 'video' and not
+                          v.get('disposition', {}).get('attached_pic')), {})
+            audio = next((v for v in streams if v['codec_type'] == 'audio'), {})
+            dur = float(media['format']['duration'])
+            if not (video or audio) or not math.isfinite(dur):
+                raise ValueError()
+        except (ValueError, KeyError, subprocess.SubprocessError):
+            dur = 0
         if dur <= 0:
             os.remove(up['path'])
-            raise ValueError('Não consegui ler este arquivo como áudio. Verifique se ele não está corrompido.')
+            raise ValueError('Não consegui ler o áudio ou vídeo deste arquivo. Verifique se ele não está corrompido.')
         src_id = uuid.uuid4().hex[:10]
         title = os.path.splitext(os.path.basename(up['name']))[0]
         src = {'id': src_id, 'kind': 'file', 'title': title, 'channel': None, 'duration': dur, 'duration_str': _hms(dur),
                'file_name': up['name'], 'file_size': up['size'], 'file_size_label': _fmt_size(up['size']),
-               'thumbnail': None, 'url': None, 'wav': None, 'src_path': up['path'],
-               'created': time.time(), 'too_long': dur > MAX_DURATION}
+               'thumbnail': None, 'url': None, 'src_path': up['path'], 'height': video.get('height', 0),
+               'audio_codec': audio.get('codec_name'), 'created': time.time()}
         STATE['sources'][src_id] = src
-        return JSON({'ok': True, 'source': src})
+        return JSON({'ok': True, 'source': {k:v for k,v in src.items() if k != 'src_path'}})
     except Exception as e:
         return JSON({'ok': False, 'error': str(e)})
 
 # ---------- tarefas: estrutura comum ----------
-def _stage(job, key, label, status='running', percent=None):
-    for s in job['stages']:
-        if s['key'] == key:
-            s['status'] = status
-            if percent is not None: s['percent'] = percent
-            if status == 'running':
-                s['started'] = s.get('started') or time.time()
-            if status in ('done', 'error'):
-                s['ended'] = time.time()
-        elif s['status'] == 'running' and status == 'running':
-            s['status'] = 'done'; s['percent'] = 100; s['ended'] = time.time()
-    if job.get('stage') != key: job['detail'] = ''
-    job['stage'] = key; job['stage_label'] = label
-    if percent is not None: job['percent'] = percent
-    if status == 'running': job['status'] = 'running'
-
 def _copy_to_drive(job, path, sub):
     if not job.get('save_drive'):
         return None
@@ -745,9 +682,9 @@ def _build_dl_opts(job, st, out_dir):
         embed_meta = False
     if mode == 'audio':
         opts['format'] = 'ba/b'
-        if audio_format != 'best' and not job.get('trim'):
+        if not job.get('trim'):
             pp = {'key': 'FFmpegExtractAudio', 'preferredcodec': audio_format}
-            if audio_format not in ('wav', 'flac') and audio_quality and audio_quality != 'best':
+            if audio_format not in ('wav', 'flac', 'best') and audio_quality and audio_quality != 'best':
                 pp['preferredquality'] = str(audio_quality)
             elif audio_format == 'mp3':
                 pp['preferredquality'] = '0'  # melhor VBR
@@ -766,6 +703,25 @@ def _build_dl_opts(job, st, out_dir):
         if embed_meta:
             opts['postprocessors'].append({'key': 'FFmpegMetadata', 'add_metadata': True})
     return opts
+
+def _encoding_options(job):
+    if job['mode'] == 'video':
+        codec = ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart']
+        mapping = ['-map', '0:V:0', '-map', '0:a:0?']
+    else:
+        fmt = job['audio_format']
+        quality = job['audio_quality']
+        bitrate = quality if quality != 'best' else '320'
+        codec = {
+            'mp3': ['-c:a', 'libmp3lame'] + (['-q:a', '0'] if quality == 'best' else ['-b:a', bitrate + 'k']),
+            'm4a': ['-c:a', 'aac', '-b:a', bitrate + 'k'],
+            'opus': ['-c:a', 'libopus', '-b:a', bitrate + 'k'],
+            'wav': ['-c:a', 'pcm_s24le'], 'flac': ['-c:a', 'flac'],
+            'best': ['-c:a', 'copy'],
+        }[fmt]
+        mapping = ['-map', '0:a:0', '-vn']
+    return mapping, codec
+
 
 def _cut_clip(job, st, src_path, info, out_dir):
     """Corta [start, end] do arquivo completo com ffmpeg, mostrando progresso.
@@ -788,23 +744,9 @@ def _cut_clip(job, st, src_path, info, out_dir):
     meta = ['-metadata', f"title={(info or {}).get('title') or ''} {tag}",
             '-metadata', f"artist={(info or {}).get('uploader') or (info or {}).get('channel') or ''}",
             '-metadata', f"comment={(info or {}).get('webpage_url') or ''}"]
-    if job['mode'] == 'video':
-        codec = ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart']
-        mapping = ['-map', '0:v:0', '-map', '0:a:0?']
-    else:
-        fmt = job['audio_format']
-        quality = job['audio_quality']
-        bitrate = quality if quality != 'best' else '320'
-        codec = {
-            'mp3': ['-c:a', 'libmp3lame'] + (['-q:a', '0'] if quality == 'best' else ['-b:a', bitrate + 'k']),
-            'm4a': ['-c:a', 'aac', '-b:a', bitrate + 'k'],
-            'opus': ['-c:a', 'libopus', '-b:a', bitrate + 'k'],
-            'wav': ['-c:a', 'pcm_s24le'], 'flac': ['-c:a', 'flac'],
-            'best': ['-c:a', 'copy'],
-        }[fmt]
-        mapping = ['-map', '0:a:0', '-vn']
-        if fmt == 'best':
-            job['warning'] = 'No formato original, o recorte segue os pacotes de áudio e pode variar alguns milissegundos. Para corte preciso, escolha outro formato.'
+    mapping, codec = _encoding_options(job)
+    if job['mode'] == 'audio' and job['audio_format'] == 'best':
+        job['warning'] = 'O corte no áudio original segue os limites dos pacotes.'
     if not job.get('embed_meta', True):
         meta = []
     progress = os.path.join(out_dir, f'cut_{st.get("id") or "x"}.progress')
@@ -825,6 +767,46 @@ def _cut_clip(job, st, src_path, info, out_dir):
     st['percent'] = 100
     return dst
 
+def _convert_upload(job, item, source, out_dir):
+    fmt = job['audio_format']
+    ext = 'mp4' if job['mode'] == 'video' else fmt
+    if ext == 'best':
+        codec = source['audio_codec']
+        ext = {'aac':'m4a', 'alac':'m4a', 'mp3':'mp3', 'flac':'flac', 'opus':'opus', 'vorbis':'ogg'}.get(codec, 'mka')
+        if codec.startswith('pcm_'):
+            ext = 'wav'
+    target = os.path.join(out_dir, _safe_name(source['title']) + '.' + ext)
+    mapping, encoding = _encoding_options(job)
+    if job['mode'] == 'video':
+        height = source['height'] if job['height'] == 'best' else job['height']
+        encoding += ['-vf', f"scale=-2:trunc(min(ih\\,{height})/2)*2"]
+    trim = job.get('trim')
+    duration = source['duration']
+    cmd = ['ffmpeg', '-y', '-v', 'error', '-nostats']
+    if trim:
+        duration = min(trim['end'], duration) - trim['start']
+        if duration <= 0:
+            raise ValueError('O trecho começa após o final do arquivo.')
+        cmd += ['-ss', str(trim['start'])]
+    cmd += ['-i', source['src_path']]
+    if trim:
+        cmd += ['-t', str(duration)]
+    progress = os.path.join(out_dir, 'convert.progress')
+    cmd += mapping + ['-map_metadata', '0' if job['embed_meta'] else '-1'] + encoding + ['-progress', progress, target]
+    item.update(status='processing', stage='Convertendo arquivo…', percent=0)
+    def update(percent):
+        item['percent'] = percent
+        _dl_progress(job, item)
+    try:
+        _run_process(job, cmd, timeout=3600, progress_file=progress, progress_total=duration, on_progress=update)
+    except BaseException:
+        if os.path.isfile(target): os.remove(target)
+        raise
+    finally:
+        if os.path.isfile(progress): os.remove(progress)
+    return target
+
+
 def _run_download_job(job):
     out_dir = os.path.join(OUT_DIR, job['id']); os.makedirs(out_dir, exist_ok=True)
     job['status'] = 'running'
@@ -835,20 +817,25 @@ def _run_download_job(job):
         st.update({'status': 'downloading', 'stage': 'Preparando…', 'percent': 0})
         _dl_progress(job, st)
         try:
-            opts = _build_dl_opts(job, st, out_dir)
-            logger = _SilentLogger(); opts['logger'] = logger
-            opts['ignoreerrors'] = False  # Nunca tratar uma conversão incompleta como arquivo final.
-            before = set(os.listdir(out_dir))
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(st['url'], download=True)
-            _check_cancel(job)
-            path = _final_path(info, out_dir, before)
-            if not path:
-                raise RuntimeError(logger.errors[-1] if logger.errors else 'O arquivo final não foi encontrado após o download.')
-            if logger.errors:
-                st['warning'] = _friendly_error(logger.errors[-1])
-            if job.get('trim'):
-                path = _cut_clip(job, st, path, info, out_dir)
+            if job.get('source_id'):
+                source = STATE['sources'][job['source_id']]
+                info = {'title': source['title']}
+                path = _convert_upload(job, st, source, out_dir)
+            else:
+                opts = _build_dl_opts(job, st, out_dir)
+                logger = _SilentLogger(); opts['logger'] = logger
+                opts['ignoreerrors'] = False  # Nunca tratar uma conversão incompleta como arquivo final.
+                before = set(os.listdir(out_dir))
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(st['url'], download=True)
+                _check_cancel(job)
+                path = _final_path(info, out_dir, before)
+                if not path:
+                    raise RuntimeError(logger.errors[-1] if logger.errors else 'O arquivo final não foi encontrado após o download.')
+                if logger.errors:
+                    st['warning'] = _friendly_error(logger.errors[-1])
+                if job.get('trim'):
+                    path = _cut_clip(job, st, path, info, out_dir)
             preview = os.path.join(out_dir, st['id'] + ('.preview.mp4' if is_video else '.preview.mp3'))
             st.update({'status': 'processing', 'stage': 'Preparando prévia…'})
             _dl_progress(job, st)
@@ -888,38 +875,20 @@ def _parse_trim(trim, items):
     if len(items) != 1:
         raise ValueError('O recorte por tempo só funciona com um vídeo por vez.')
     try:
-        start = max(0.0, float(trim.get('start') or 0))
+        start = float(trim.get('start') or 0)
         end = float(trim.get('end'))
     except Exception:
         raise ValueError('Tempos do recorte inválidos. Use o formato mm:ss ou hh:mm:ss.')
     if not math.isfinite(start) or not math.isfinite(end):
         raise ValueError('Tempos do recorte inválidos.')
+    start = max(0.0, start)
     if end <= start:
         raise ValueError('O fim do trecho precisa ser maior que o início.')
     if end - start < 1:
         raise ValueError('O trecho precisa ter pelo menos 1 segundo.')
     return {'start': start, 'end': end}
 
-def _new_download_job(payload):
-    items = payload.get('items') or []
-    if not isinstance(items, list) or not items:
-        raise ValueError('Nenhum vídeo selecionado.')
-    if len(items) > MAX_PLAYLIST:
-        raise ValueError(f'No máximo {MAX_PLAYLIST} vídeos por tarefa.')
-    mode = payload.get('mode', 'video')
-    if mode not in ('video', 'audio'):
-        raise ValueError('Tipo de download inválido.')
-    height = payload.get('height', 'best')
-    if height != 'best':
-        try: height = int(height)
-        except Exception: raise ValueError('Resolução inválida.')
-        if not 100 <= height <= 8640: raise ValueError('Resolução inválida.')
-    audio_format = payload.get('audio_format', 'mp3')
-    if audio_format not in AUDIO_FORMATS:
-        raise ValueError('Formato de áudio inválido.')
-    audio_quality = str(payload.get('audio_quality', 'best'))
-    if audio_quality not in AUDIO_QUALITIES:
-        raise ValueError('Qualidade de áudio inválida.')
+def _youtube_items(items):
     clean_items = []
     seen = set()
     for it in items:
@@ -939,6 +908,40 @@ def _new_download_job(payload):
         clean_items.append({'id': vid, 'url': url, 'title': str(it.get('title') or vid)[:200],
                             'thumbnail': str(it.get('thumbnail') or '')[:500] or f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg',
                             'status': 'queued', 'percent': 0, 'stage': 'Na fila'})
+    return clean_items
+
+
+def _new_download_job(payload):
+    items = payload.get('items') or []
+    if not isinstance(items, list) or (not items and not payload.get('source_id')):
+        raise ValueError('Nenhum vídeo selecionado.')
+    if len(items) > MAX_PLAYLIST:
+        raise ValueError(f'No máximo {MAX_PLAYLIST} vídeos por tarefa.')
+    mode = payload.get('mode', 'video')
+    if mode not in ('video', 'audio'):
+        raise ValueError('Tipo de download inválido.')
+    height = payload.get('height', 'best')
+    if height != 'best':
+        try: height = int(height)
+        except Exception: raise ValueError('Resolução inválida.')
+        if not 100 <= height <= 8640: raise ValueError('Resolução inválida.')
+    audio_format = payload.get('audio_format', 'mp3')
+    if audio_format not in AUDIO_FORMATS:
+        raise ValueError('Formato de áudio inválido.')
+    audio_quality = str(payload.get('audio_quality', 'best'))
+    if audio_quality not in AUDIO_QUALITIES:
+        raise ValueError('Qualidade de áudio inválida.')
+    source_id = payload.get('source_id')
+    if source_id:
+        source = STATE['sources'].get(source_id)
+        if not source or source['kind'] != 'file':
+            raise ValueError('Envie o arquivo novamente.')
+        if not (source['height'] if mode == 'video' else source['audio_codec']):
+            raise ValueError('O arquivo não contém o fluxo de mídia escolhido.')
+        clean_items = [{'id':source_id, 'title':source['title'], 'thumbnail':None,
+                        'status':'queued', 'percent':0, 'stage':'Na fila'}]
+    else:
+        clean_items = _youtube_items(items)
     trim = _parse_trim(payload.get('trim'), clean_items)
     folder = re.sub(r'[^\w\s.-]', '', str(payload.get('folder') or ''))[:80].strip().strip('.')
     first = clean_items[0]
@@ -950,170 +953,13 @@ def _new_download_job(payload):
     label = (f'{n} vídeos · ' if n > 1 else '') + ('Vídeo MP4 · ' if mode == 'video' else 'Áudio · ') + qual
     if trim: label += f" · trecho {_hms(trim['start'])}–{_hms(trim['end'])}"
     return {
-        'kind': 'download', 'mode': mode, 'height': height, 'audio_format': audio_format, 'audio_quality': audio_quality,
+        'kind': 'download', 'source_id': source_id, 'mode': mode, 'height': height, 'audio_format': audio_format, 'audio_quality': audio_quality,
         'embed_meta': bool(payload.get('embed_meta', True)), 'folder': folder, 'trim': trim,
         'title': str(payload.get('title') or (first['title'] if n == 1 else f"{first['title']} e mais {n - 1}"))[:200],
         'thumbnail': first['thumbnail'], 'label': label, 'items': clean_items, 'duration': 0,
         'stages': [{'key': 'fetch', 'label': 'Baixar do YouTube', 'status': 'pending', 'percent': 0},
                    {'key': 'export', 'label': 'Converter e finalizar', 'status': 'pending', 'percent': 0}],
     }
-
-# ---------- separação de faixas (IA) ----------
-def _download_youtube_audio(job, src, out_dir, tag='src'):
-    """Baixa o áudio original (m4a/webm) de um vídeo, sem conversão."""
-    opts = _base_opts()
-    logger = _SilentLogger(); opts['logger'] = logger
-    def hook(d):
-        _check_cancel(job)
-        if d['status'] == 'downloading':
-            total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
-            done = d.get('downloaded_bytes') or 0
-            job['percent'] = (done / total * 100) if total else 0
-            job['detail'] = f"{_fmt_size(done) or '0 B'}{' de ' + _fmt_size(total) if total else ''}" + (f" · {_fmt_size(d['speed'])}/s" if d.get('speed') else '')
-        elif d['status'] == 'finished':
-            job['percent'] = 100; job['detail'] = ''
-    opts.update({
-        'outtmpl': os.path.join(out_dir, f'{tag}_%(id)s.%(ext)s'),
-        'noplaylist': True, 'overwrites': True, 'windowsfilenames': True, 'concurrent_fragment_downloads': 4,
-        'format': 'ba/b', 'progress_hooks': [hook], 'postprocessors': [], 'ignoreerrors': False,
-    })
-    before = set(os.listdir(out_dir))
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(src['url'], download=True)
-    _check_cancel(job)
-    path = _final_path(info, out_dir, before)
-    if not path:
-        raise RuntimeError(logger.errors[-1] if logger.errors else 'O arquivo não foi encontrado após o download.')
-    if logger.errors:
-        job['warning'] = _friendly_error(logger.errors[-1])
-    return path
-
-def _ensure_source_wav(job, src):
-    """Garante um WAV 44.1 kHz estéreo da fonte (baixando do YouTube se preciso). Fica em cache por fonte."""
-    if src.get('wav') and os.path.exists(src['wav']):
-        _stage(job, 'fetch', 'Áudio já disponível', 'done', 100)
-        return src['wav']
-    src_dir = os.path.join(WORK_DIR, src['id']); os.makedirs(src_dir, exist_ok=True)
-    if src['kind'] == 'youtube':
-        _stage(job, 'fetch', 'Baixando áudio do YouTube…', 'running', 0)
-        raw = _download_youtube_audio(job, src, src_dir, tag='src')
-    else:
-        raw = src['src_path']
-    _stage(job, 'fetch', 'Preparando o áudio…', 'running', 100)
-    job['detail'] = 'Convertendo para WAV 44.1 kHz'
-    wav = os.path.join(src_dir, 'source.wav')
-    _run_process(job, ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', raw,
-                       '-vn', '-ac', '2', '-ar', '44100', '-c:a', 'pcm_s24le', wav])
-    src['wav'] = wav
-    if not src.get('duration'):
-        src['duration'] = _ffprobe_duration(wav); src['duration_str'] = _hms(src['duration'])
-    job['detail'] = ''
-    return wav
-
-def _sep_cmd():
-    exe = shutil.which('audio-separator')
-    return [exe] if exe else [sys.executable, '-m', 'audio_separator.utils.cli']
-
-def _iter_output(stream, job, proc, timeout=7200):
-    lines = queue.Queue()
-    def read():
-        buf = ''
-        try:
-            while True:
-                ch = stream.read(1)
-                if not ch: break
-                if ch in ('\r', '\n'):
-                    if buf.strip(): lines.put(buf)
-                    buf = ''
-                else:
-                    buf = (buf + ch)[-4000:]
-            if buf: lines.put(buf)
-        finally:
-            lines.put(None)
-    threading.Thread(target=read, daemon=True).start()
-    started = time.monotonic()
-    while True:
-        _check_cancel(job)
-        if time.monotonic() - started > timeout:
-            raise TimeoutError('A separação excedeu duas horas. Tente um áudio mais curto.')
-        try: line = lines.get(timeout=0.2)
-        except queue.Empty: continue
-        if line is None: return
-        yield line
-
-def _run_separator(job, wav, mode, out_format, out_dir, names):
-    cfg = MODES[mode]
-    cmd = _sep_cmd() + [wav, '--model_filename', cfg['model'],
-           '--model_file_dir', MODELS_DIR, '--output_dir', out_dir, '--output_format', OUT_FORMATS[out_format],
-           '--custom_output_names', json.dumps(names), '--log_level', 'info']
-    if out_format == 'mp3':
-        cmd += ['--output_bitrate', '320k']
-    if cfg['model'].endswith('.yaml'):
-        cmd += ['--demucs_shifts', '1']
-    if _gpu_info()['available']:
-        cmd += ['--use_autocast']   # precisão mista na GPU: bem mais rápido, qualidade praticamente igual
-    env = dict(os.environ, PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8', TQDM_MININTERVAL='0.5')
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors='ignore', env=env, bufsize=0)
-    job['proc'] = proc
-    tail, err_hint = [], None
-    started = time.time(); phase_started = None
-    est = cfg['base'] + (job.get('duration') or 180) * cfg['factor']
-    onde = 'na GPU' if (_gpu_info()['available']) else 'no processador'
-    if _model_ready(cfg['model']):
-        _stage(job, 'model', f'Carregando o modelo {onde}…', 'running', 0)
-    else:
-        _stage(job, 'model', 'Baixando o modelo de IA (uma vez por sessão)…', 'running', 0)
-    try:
-        for line in _iter_output(proc.stdout, job, proc):
-            if job.get('cancel'):
-                proc.kill(); raise yt_dlp.utils.DownloadCancelled('Cancelado pelo usuário')
-            tail.append(line[:300]); tail[:] = tail[-40:]
-            low = line.lower()
-            m = re.search(r'(\d{1,3})%\|', line)  # barras do tqdm (download do modelo / separação)
-            if 'starting separation' in low:
-                _stage(job, 'separate', f'Separando as faixas {onde}…', 'running', 0); phase_started = time.time(); job['detail'] = ''
-            elif 'loading model' in low and job['stage'] == 'model':
-                job['detail'] = 'Carregando pesos…'
-            elif ' saving ' in low or 'writing output' in low:
-                if job['stage'] == 'separate': job['detail'] = 'Gravando arquivos…'
-            elif m and job['stage'] == 'model':
-                job['percent'] = int(m.group(1)); job['detail'] = f'Baixando modelo… {m.group(1)}%'
-            elif m and job['stage'] == 'separate':
-                job['percent'] = max(job['percent'], min(99, int(m.group(1)))); job['detail'] = f'{m.group(1)}%'
-            if ('error' in low or 'traceback' in low) and 'errorlevel' not in low:
-                err_hint = line
-            if job['stage'] == 'separate' and phase_started and not m:
-                job['percent'] = max(job['percent'], min(95, (time.time() - phase_started) / max(est, 1) * 100))
-        proc.wait()
-    finally:
-        if proc.poll() is None: proc.kill()
-        proc.wait()
-        job['proc'] = None
-        try: proc.stdout.close()
-        except Exception: pass
-    if job.get('cancel'):
-        raise yt_dlp.utils.DownloadCancelled('Cancelado pelo usuário')
-    if proc.returncode != 0:
-        msg = err_hint or (tail[-1] if tail else f'o separador retornou código {proc.returncode}')
-        job['log_tail'] = tail[-15:]
-        raise RuntimeError(_friendly_error(msg))
-    job['sep_seconds'] = round(time.time() - started)
-
-def _run_separator_mock(job, wav, mode, out_format, out_dir, names):
-    """Modo de teste local: gera 'faixas' com filtros do ffmpeg, sem IA."""
-    filters = {'Vocals': 'highpass=f=1200', 'Instrumental': 'lowpass=f=1200', 'Drums': 'lowpass=f=200',
-               'Bass': 'lowpass=f=120', 'Guitar': 'bandpass=f=800:w=400', 'Piano': 'bandpass=f=1500:w=600', 'Other': 'highpass=f=3000'}
-    _stage(job, 'model', 'Carregando o modelo (simulação)…', 'running', 0); time.sleep(1.0)
-    _stage(job, 'separate', 'Separando as faixas (simulação)…', 'running', 0)
-    stems = MODES[mode]['stems']
-    for i, stem in enumerate(stems):
-        _check_cancel(job)
-        ext = out_format
-        dst = os.path.join(out_dir, f'{names[stem]}.{ext}')
-        codec = ['-c:a', 'libmp3lame', '-b:a', '320k'] if ext == 'mp3' else (['-c:a', 'flac'] if ext == 'flac' else ['-c:a', 'pcm_s16le'])
-        subprocess.run(['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', wav, '-af', filters[stem]] + codec + [dst], check=True)
-        job['percent'] = (i + 1) / len(stems) * 100; time.sleep(0.4)
-    job['sep_seconds'] = 3
 
 def _make_video_preview(src_path, dst_path, job):
     """Prévia completa H.264/AAC em até 480p, sem alterar o vídeo para download."""
@@ -1144,151 +990,14 @@ def _make_preview(src_path, dst_path, job):
         job['warning'] = 'Os arquivos foram gerados, mas uma prévia não pôde ser criada. Baixe as faixas para ouvir.'
         return False
 
-def _run_separate_job(job):
-    src = STATE['sources'][job['source_id']]
-    job['duration'] = src.get('duration') or 0
-    out_dir = os.path.join(OUT_DIR, job['id']); os.makedirs(out_dir, exist_ok=True)
-    wav = _ensure_source_wav(job, src)
-    if not job['duration']:
-        job['duration'] = _ffprobe_duration(wav)
-    if job['duration'] > MAX_DURATION:
-        raise RuntimeError(f'Este áudio tem {_hms(job["duration"])}. O limite é {MAX_DURATION // 60} minutos para não estourar a memória da GPU.')
-    mode, fmt = job['mode'], job['out_format']
-    base = _safe_name(src['title'])
-    names = {stem: f'stemtube_{stem.lower()}' for stem in MODES[mode]['stems']}   # nomes internos simples
-    _stage(job, 'model', 'Aguardando disponibilidade do modelo…', 'running', 0)
-    while not MODEL_LOCK.acquire(timeout=0.2):
-        _check_cancel(job)
-    try:
-        _check_cancel(job)
-        (_run_separator_mock if MOCK else _run_separator)(job, wav, mode, fmt, out_dir, names)
-        if not MOCK: STATE.setdefault('ready_models', set()).add(MODES[mode]['model'])
-    finally:
-        MODEL_LOCK.release()
-    _stage(job, 'export', 'Preparando prévias e arquivos…', 'running', 0)
-    files = []
-    stems = MODES[mode]['stems']
-    for i, stem in enumerate(stems):
-        _check_cancel(job)
-        cand = [f for f in os.listdir(out_dir) if f.lower().startswith(names[stem]) and not f.endswith('.preview.mp3')]
-        if not cand:
-            raise RuntimeError(f'A faixa "{STEM_PT[stem]}" não foi gerada pelo separador.' + (' Detalhes: ' + ' | '.join(job.get('log_tail') or [])[-300:] if job.get('log_tail') else ''))
-        path = os.path.join(out_dir, f'{base} - {STEM_PT[stem]}{os.path.splitext(cand[0])[1]}')
-        os.replace(os.path.join(out_dir, cand[0]), path)
-        prev = os.path.join(out_dir, f'{stem.lower()}.preview.mp3')
-        _make_preview(path, prev, job)
-        size = os.path.getsize(path)
-        files.append({'stem': stem, 'label': STEM_PT[stem], 'icon': STEM_ICON[stem], 'color': STEM_COLOR[stem],
-                      'file': os.path.basename(path), 'rel': f"{job['id']}/{os.path.basename(path)}",
-                      'preview': f"{job['id']}/{os.path.basename(prev)}" if os.path.exists(prev) else None,
-                      'size': size, 'size_label': _fmt_size(size),
-                      'drive_path': _copy_to_drive(job, path, os.path.join('Faixas', base, job['id']))})
-        job['percent'] = (i + 1) / len(stems) * 100
-    orig_prev = os.path.join(out_dir, 'original.preview.mp3')   # prévia do original para comparação no mixer
-    if _make_preview(wav, orig_prev, job):
-        job['original_preview'] = f"{job['id']}/original.preview.mp3"
-    job['files'] = files
-    _stage(job, 'export', 'Concluído', 'done', 100)
 
-def _new_separate_job(payload):
-    src = STATE['sources'].get(payload.get('source_id'))
-    if not src:
-        raise ValueError('Fonte não encontrada. Analise o link ou envie o arquivo novamente.')
-    if not SEP_AVAILABLE:
-        raise ValueError('O separador de faixas não está instalado. Rode a célula 1 com a opção "instalar_separador_ia" marcada.')
-    mode = payload.get('mode'); fmt = payload.get('out_format', 'wav')
-    if mode not in MODES: raise ValueError('Modo de separação inválido.')
-    if fmt not in OUT_FORMATS: raise ValueError('Formato de saída inválido.')
-    if src.get('too_long'):
-        raise ValueError(f'Este áudio tem {src["duration_str"]}. O limite para separação é {MAX_DURATION // 60} minutos.')
-    job = {'kind': 'separate', 'source_id': src['id'], 'title': src['title'], 'thumbnail': src.get('thumbnail'),
-           'duration': src.get('duration') or 0, 'mode': mode, 'mode_label': MODES[mode]['label'], 'out_format': fmt,
-           'stems': MODES[mode]['stems'], 'label': f"{MODES[mode]['label']} · {fmt.upper()}",
-           'stages': [{'key': 'fetch', 'label': 'Obter o áudio', 'status': 'pending', 'percent': 0},
-                      {'key': 'model', 'label': 'Modelo de IA', 'status': 'pending', 'percent': 0},
-                      {'key': 'separate', 'label': 'Separar na GPU', 'status': 'pending', 'percent': 0},
-                      {'key': 'export', 'label': 'Exportar faixas', 'status': 'pending', 'percent': 0}]}
-    if not MOCK and not _gpu_info()['available']:
-        job['warning'] = 'Sem GPU nesta sessão: a separação vai rodar no processador e pode demorar muitos minutos.'
-    return job
-
-# ---------- mixagem ----------
-def cb_mix_job(parent_id, tracks, out_format='wav', save_drive=False):
-    """Cria uma mixagem independente sem alterar as faixas da separação."""
-    try:
-        parent = STATE['jobs'].get(parent_id)
-        if not parent or parent['status'] != 'done' or parent['kind'] != 'separate':
-            raise ValueError('Conclua uma separação antes de renderizar a mixagem.')
-        if out_format not in OUT_FORMATS:
-            raise ValueError('Escolha WAV, FLAC ou MP3.')
-        if not isinstance(tracks, list) or not 1 <= len(tracks) <= len(parent['files']):
-            raise ValueError('Selecione ao menos uma faixa audível para renderizar.')
-        available = {f['stem']: f for f in parent['files']}
-        selected, seen = [], set()
-        for item in tracks:
-            stem = item.get('stem'); gain = float(item.get('gain', 1))
-            if stem not in available or stem in seen or not math.isfinite(gain) or not 0 < gain <= 1:
-                raise ValueError('Seleção de faixas ou volume inválido.')
-            seen.add(stem)
-            f = available[stem]
-            _output_path(f['rel'])
-            selected.append({'stem': stem, 'gain': gain, 'rel': f['rel'], 'label': f['label']})
-        label = ' + '.join(f['label'] for f in selected)
-        job = _enqueue({'kind': 'mix', 'parent_id': parent_id, 'source_id': parent['source_id'],
-                        'title': parent['title'], 'thumbnail': parent.get('thumbnail'), 'duration': parent.get('duration') or 0,
-                        'save_drive': bool(save_drive), 'out_format': out_format, 'mix_tracks': selected,
-                        'label': f'Mixagem: {label} · {out_format.upper()}',
-                        'stages': [{'key': 'export', 'label': 'Renderizar mixagem', 'status': 'pending', 'percent': 0}]})
-        return JSON({'ok': True, 'job_id': job['id'], 'ahead': job['ahead']})
-    except Exception as e:
-        return JSON({'ok': False, 'error': _friendly_error(str(e))})
-
-def _run_mix_job(job):
-    out_dir = os.path.join(OUT_DIR, job['id']); os.makedirs(out_dir, exist_ok=True)
-    fmt = job['out_format']
-    filename = _safe_name(job['title'], 65) + ' - Mixagem.' + fmt
-    path = os.path.join(out_dir, filename)
-    cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error']
-    filters, labels = [], []
-    for i, track in enumerate(job['mix_tracks']):
-        cmd += ['-i', _output_path(track['rel'])]
-        filters.append(f'[{i}:a]aresample=44100,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS,volume={track["gain"]:.8f}[s{i}]')
-        labels.append(f'[s{i}]')
-    # Em 44100 Hz, padding/corte de 219 amostras compensam attack=5 sem exigir latency.
-    filters.append(''.join(labels) + f'amix=inputs={len(labels)}:duration=longest:dropout_transition=0:normalize=0,apad=pad_len=219,alimiter=limit=0.98:level=false:attack=5,atrim=start_sample=219,asetpts=PTS-STARTPTS[mix]')
-    codec = {'wav': ['-c:a', 'pcm_s24le'], 'flac': ['-c:a', 'flac'], 'mp3': ['-c:a', 'libmp3lame', '-b:a', '320k']}[fmt]
-    progress = os.path.join(out_dir, 'render.progress')
-    cmd += ['-filter_complex', ';'.join(filters), '-map', '[mix]', '-vn', '-ar', '44100'] + codec
-    cmd += ['-progress', progress, '-nostats', path]
-    _stage(job, 'export', 'Renderizando mixagem…', 'running', 0)
-    job['detail'] = ' + '.join(t['label'] for t in job['mix_tracks'])
-    try:
-        _run_process(job, cmd, progress_file=progress)
-        if not os.path.isfile(path) or os.path.getsize(path) == 0:
-            raise RuntimeError('A mixagem não gerou um arquivo de áudio válido.')
-        _check_cancel(job)
-        drive = _copy_to_drive(job, path, os.path.join('Mixagens', job['id']))
-        size = os.path.getsize(path)
-        prev = os.path.join(out_dir, 'mix.preview.mp3')
-        job['files'] = [{'stem': 'Mix', 'label': 'Mixagem', 'icon': '🎛', 'color': '#34d399',
-                         'file': filename, 'rel': f"{job['id']}/{filename}", 'size': size, 'size_label': _fmt_size(size),
-                         'preview': f"{job['id']}/mix.preview.mp3" if _make_preview(path, prev, job) else None, 'drive_path': drive}]
-        _stage(job, 'export', 'Mixagem concluída', 'done', 100)
-    except BaseException:
-        if os.path.exists(path): os.remove(path)
-        raise
-    finally:
-        if os.path.exists(progress): os.remove(progress)
-
-# ---------- fila: duas pistas (downloads e processamento na GPU rodam em paralelo) ----------
-LANES = {'download': 'download', 'separate': 'process', 'mix': 'process'}
-JOB_QUEUES = STATE.setdefault('queues', {'download': queue.Queue(), 'process': queue.Queue()})
+JOB_QUEUE = STATE.setdefault('download_queue', queue.Queue())
 
 def _run_job(job_id):
     job = STATE['jobs'][job_id]
     job['started'] = time.time()
     try:
-        {'separate': _run_separate_job, 'mix': _run_mix_job, 'download': _run_download_job}[job['kind']](job)
+        _run_download_job(job)
         _check_cancel(job)
         job['status'] = 'done'; job['percent'] = 100
         for s in job['stages']:
@@ -1304,8 +1013,8 @@ def _run_job(job_id):
     job['finished'] = time.time()
     job['elapsed'] = round(job['finished'] - job['started'])
 
-def _worker(lane):
-    q = JOB_QUEUES[lane]
+def _worker():
+    q = JOB_QUEUE
     while True:
         job_id = q.get()
         try:
@@ -1322,18 +1031,15 @@ def _worker(lane):
         finally:
             q.task_done()
 
-def _ensure_workers():
-    workers = STATE.setdefault('workers', {})
-    for lane in JOB_QUEUES:
-        w = workers.get(lane)
-        if not w or not w.is_alive():
-            w = threading.Thread(target=_worker, args=(lane,), daemon=True); w.start()
-            workers[lane] = w
+def _ensure_worker():
+    worker = STATE.get('download_worker')
+    if not worker or not worker.is_alive():
+        worker = threading.Thread(target=_worker, daemon=True)
+        STATE['download_worker'] = worker
+        worker.start()
 
 def _ahead_of(job):
-    lane = LANES[job['kind']]
-    return sum(1 for j in STATE['jobs'].values() if j['id'] != job['id'] and LANES[j['kind']] == lane
-               and j['status'] in ('queued', 'running') and j['created'] < job['created'])
+    return sum(1 for j in STATE['jobs'].values() if j['status'] in ('queued', 'running') and j['created'] < job['created'])
 
 def _enqueue(job):
     job_id = uuid.uuid4().hex[:10]
@@ -1342,7 +1048,7 @@ def _enqueue(job):
     job.setdefault('files', []); job.setdefault('items', []); job.setdefault('warning', None); job.setdefault('save_drive', False)
     STATE['jobs'][job_id] = job
     job['ahead'] = _ahead_of(job)
-    JOB_QUEUES[LANES[job['kind']]].put(job_id); _ensure_workers()
+    JOB_QUEUE.put(job_id)
     return job
 
 def cb_start_job(payload):
@@ -1350,8 +1056,6 @@ def cb_start_job(payload):
         kind = payload.get('kind')
         if kind == 'download':
             job = _new_download_job(payload)
-        elif kind == 'separate':
-            job = _new_separate_job(payload)
         else:
             return JSON({'ok': False, 'error': 'Tipo de tarefa inválido.'})
         job['save_drive'] = bool(payload.get('save_drive'))
@@ -1361,7 +1065,7 @@ def cb_start_job(payload):
         return JSON({'ok': False, 'error': _friendly_error(str(e))})
 
 def _job_view(job):
-    v = {k: val for k, val in job.items() if k not in ('cancel', 'proc', 'mix_tracks')}
+    v = {k: val for k, val in job.items() if k not in ('cancel', 'proc')}
     v['ok'] = True
     if job['status'] == 'running' and job.get('started'):
         v['elapsed'] = round(time.time() - job['started'])
@@ -1401,14 +1105,17 @@ def cb_zip_job(job_id):
         job = STATE['jobs'].get(job_id)
         if not job or job.get('status') not in ('done', 'cancelled') or not job.get('files'):
             return JSON({'ok': False, 'error': 'Nenhum arquivo para compactar.'})
-        src = os.path.join(OUT_DIR, job_id)
         name = _safe_name(job.get('folder') or job.get('title') or 'arquivos', 60)
-        tmp = os.path.join(OUT_DIR, f'{job_id}_zipsrc'); shutil.rmtree(tmp, ignore_errors=True); os.makedirs(tmp)
-        for f in job['files']:
-            shutil.copy2(os.path.join(src, f['file']), os.path.join(tmp, f['file']))
-        zp = shutil.make_archive(os.path.join(OUT_DIR, f'{job_id}_{re.sub(r"[^\w.-]+", "_", name)}'), 'zip', tmp)
-        shutil.rmtree(tmp, ignore_errors=True)
-        sub = {'download': 'Downloads', 'separate': 'Faixas', 'mix': 'Mixagens'}[job['kind']]
+        slug = re.sub(r'[^\w.-]+', '_', name)
+        zp = os.path.join(OUT_DIR, f'{job_id}_{slug}.zip')
+        # Escreve uma vez e publica só o ZIP completo, inclusive em tentativas simultâneas.
+        with tempfile.TemporaryDirectory(dir=OUT_DIR) as staging:
+            partial = os.path.join(staging, 'result.zip')
+            with zipfile.ZipFile(partial, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+                for item in job['files']:
+                    archive.write(_output_path(item['rel']), arcname=item['file'])
+            os.replace(partial, zp)
+        sub = os.path.join('Downloads', job.get('folder') or '')
         drive = _copy_to_drive(job, zp, sub) if job.get('save_drive') else None
         return JSON({'ok': True, 'rel': os.path.basename(zp), 'size_label': _fmt_size(os.path.getsize(zp)), 'drive_path': drive})
     except Exception as e:
@@ -1425,7 +1132,7 @@ def cb_colab_download(rel):
         return JSON({'ok': False, 'error': str(e)})
 
 def cb_preview_b64(rel):
-    """Plano B do mixer: entrega a prévia em base64 pela ponte do Colab quando o proxy de portas não responde."""
+    """Plano B de reprodução: entrega a prévia em base64 pela ponte do Colab quando o proxy de portas não responde."""
     try:
         path = _output_path(rel, preview=True)
         if os.path.getsize(path) > 32 * 1024 * 1024:
@@ -1436,21 +1143,27 @@ def cb_preview_b64(rel):
     except Exception as e:
         return JSON({'ok': False, 'error': str(e)})
 
-def cb_preview_chunk(rel, offset=0):
-    """Transfere prévias em blocos pequenos quando o proxy do Colab falha."""
+def _read_file_chunk(rel, offset, *, preview):
+    import mimetypes
     try:
-        path = _output_path(rel, preview=True)
+        path = _output_path(rel, preview=preview)
         total = os.path.getsize(path)
         if isinstance(offset, bool) or not isinstance(offset, int) or not 0 <= offset <= total:
-            raise ValueError('Posição da prévia inválida.')
+            raise ValueError('Posição do arquivo inválida.')
         with open(path, 'rb') as stream:
             stream.seek(offset)
-            chunk = stream.read(512 * 1024)
+            chunk = stream.read(512 * 1024 if preview else 1024 * 1024)
         return JSON({'ok': True, 'b64': base64.b64encode(chunk).decode('ascii'),
                      'offset': offset, 'next_offset': offset + len(chunk), 'total': total,
-                     'mime': 'video/mp4' if path.endswith('.mp4') else 'audio/mpeg'})
+                     'mime': mimetypes.guess_type(path)[0] or 'application/octet-stream'})
     except Exception as e:
         return JSON({'ok': False, 'error': str(e)})
+
+def cb_preview_chunk(rel, offset=0):
+    return _read_file_chunk(rel, offset, preview=True)
+
+def cb_download_chunk(rel, offset=0):
+    return _read_file_chunk(rel, offset, preview=False)
 
 def cb_cleanup():
     try:
@@ -1464,29 +1177,7 @@ def cb_cleanup():
     except Exception as e:
         return JSON({'ok': False, 'error': str(e)})
 
-# ---------- pré-download do modelo padrão (em segundo plano) ----------
-def _prefetch_model(model):
-    if MOCK or not SEP_AVAILABLE or _model_ready(model) or STATE['prefetch'].get(model):
-        return
-    STATE['prefetch'][model] = 'running'
-    def run():
-        with MODEL_LOCK:
-            try:
-                if not _model_ready(model):
-                    subprocess.run(_sep_cmd() + ['--download_model_only', '--model_filename', model,
-                                   '--model_file_dir', MODELS_DIR, '--log_level', 'warning'],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1800, check=True)
-                    STATE.setdefault('ready_models', set()).add(model)
-                STATE['prefetch'][model] = 'done'
-            except Exception:
-                STATE['prefetch'][model] = 'failed'
-    threading.Thread(target=run, daemon=True).start()
-
-def cb_models_status():
-    return JSON({'ok': True, 'separator': SEP_AVAILABLE,
-                 'models': {k: {'ready': _model_ready(v['model']), 'prefetch': STATE['prefetch'].get(v['model'])} for k, v in MODES.items()}})
-
-# ---------- servidor de arquivos (prévias do mixer, com suporte a Range) ----------
+# ---------- servidor de arquivos (prévias, com suporte a Range) ----------
 class _FileHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
         super().__init__(*a, directory=OUT_DIR, **k)
@@ -1548,15 +1239,14 @@ def _start_file_server():
     class _Srv(socketserver.ThreadingTCPServer):
         allow_reuse_address = True; daemon_threads = True
     try:
-        srv = _Srv(('0.0.0.0', FILE_PORT), _FileHandler)
+        srv = _Srv(('127.0.0.1', FILE_PORT), _FileHandler)
     except OSError as e:
         raise RuntimeError('A porta de prévias está ocupada. Reinicie a sessão e execute as células 1 e 2.') from e
     STATE['server'] = srv
     threading.Thread(target=srv.serve_forever, daemon=True).start()
 
 _start_file_server()
-_ensure_workers()
-_prefetch_model(MODES['2stem']['model'])
+_ensure_worker()
 
 # ---------- registro das funções para a interface ----------
 def _register(name, fn):
@@ -1570,7 +1260,7 @@ for _n, _f in {
     'bootstrap': cb_bootstrap, 'save_cookies': cb_save_cookies, 'clear_cookies': cb_clear_cookies, 'test_cookies': cb_test_cookies,
     'analyze': cb_analyze, 'upload_start': cb_upload_start, 'upload_chunk': cb_upload_chunk, 'upload_finish': cb_upload_finish,
     'start_job': cb_start_job, 'job_status': cb_job_status, 'jobs_list': cb_jobs_list, 'cancel_job': cb_cancel_job,
-    'zip_job': cb_zip_job, 'colab_download': cb_colab_download, 'cleanup': cb_cleanup, 'models_status': cb_models_status,
-    'preview_b64': cb_preview_b64, 'preview_chunk': cb_preview_chunk, 'mix_job': cb_mix_job,
+    'download_chunk': cb_download_chunk, 'zip_job': cb_zip_job, 'colab_download': cb_colab_download, 'cleanup': cb_cleanup,
+    'preview_b64': cb_preview_b64, 'preview_chunk': cb_preview_chunk,
 }.items():
     _register(_n, _f)

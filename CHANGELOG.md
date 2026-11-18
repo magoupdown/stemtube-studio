@@ -1,3 +1,7 @@
+## Edição de extração e conversão
+
+Removidos o separador por IA, o mixer de faixas, os modelos e a solicitação de GPU. O envio local agora permite conversão e extração. A nova aba responsiva, os recortes, as prévias, a fila, o ZIP e o Drive continuam disponíveis.
+
 ## Player de prévias para todos os resultados
 
 - Novo player com reprodução, pausa, busca, volume e velocidade para áudio e vídeo.

@@ -4,7 +4,7 @@
 
 Células geradas:
   0. intro.md        → cabeçalho (markdown)
-  1. setup_cell.py   → login Google, Drive, GPU e dependências (form)
+  1. setup_cell.py   → login Google, Drive e dependências (form)
   2. backend.py + app.html → o aplicativo (form)
   3. cleanup_cell.py → limpeza opcional (form)
   4. outro.md        → sobre, solução de problemas e limites (markdown)
@@ -24,8 +24,10 @@ app_html = read('app.html')
 assert '"""' not in app_html, 'app.html não pode conter aspas triplas'
 
 APP_PY_HEAD = r'''#@title 2️⃣ Abrir o aplicativo  { display-mode: "form" }
-#@markdown Clique no ▶. A interface aparece logo abaixo. Se o ambiente for reiniciado, rode a célula 1 e depois esta.
-import os as _os
+#@markdown Execute esta célula e clique em **Abrir StemTube Studio em nova aba**. Se o ambiente for reiniciado, rode a célula 1 e depois esta.
+abrir_em_nova_aba = True  #@param {type:"boolean"}
+#@markdown Se o navegador bloquear a nova aba, desmarque a opção para usar a interface nesta célula.
+import json as _json
 from IPython.display import HTML as _HTML, display as _display
 
 def _erro(msg):
@@ -33,7 +35,7 @@ def _erro(msg):
                    f'background:#ef444414;font-size:14px">⛔ <b>{msg}</b></div>'))
 
 _pronto = True
-if 'USER_EMAIL' not in globals():
+if not globals().get('_STEMTUBE_SETUP_READY'):
     _erro('Execute primeiro a célula 1️⃣ (login na conta Google).'); _pronto = False
 else:
     try:
@@ -51,7 +53,15 @@ if _pronto:
 APP_PY_TAIL = r'''
 if _pronto:
     try:
-        _display(_HTML(APP_HTML))
+        if abrir_em_nova_aba:
+            _page = ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
+                     '<meta name="viewport" content="width=device-width, initial-scale=1">'
+                     '<title>StemTube Studio</title></head><body class="studio-window">' + APP_HTML + '</body></html>')
+            # A página contém scripts próprios. Escape "<" antes de inseri-la no script lançador.
+            _literal = _json.dumps(_page, ensure_ascii=True).replace('<', r'\u003c')
+            _display(_HTML(LAUNCHER.replace('__STUDIO_DOCUMENT__', _literal)))
+        else:
+            _display(_HTML(APP_HTML))
     except Exception as _e:
         import traceback as _tb
         _erro('Falha ao abrir o aplicativo. Copie a mensagem abaixo e envie para suporte.')
@@ -64,7 +74,7 @@ def indent(code, n=4):
 app_cell = (APP_PY_HEAD + '    try:\n' + indent(backend, 8) + '\n\n' + indent('APP_HTML = r"""' + app_html + '"""', 8)
             + '\n    except Exception as _e:\n        import traceback as _tb\n        _pronto = False\n'
             + '        _erro(\'Erro ao preparar o aplicativo. Copie a mensagem abaixo e envie para suporte.\')\n'
-            + '        print(_tb.format_exc())\n' + APP_PY_TAIL)
+            + '        print(_tb.format_exc())\n' + 'LAUNCHER = ' + repr(read('launcher.html')) + '\n' + APP_PY_TAIL)
 
 def cell(kind, src, **meta):
     c = {'cell_type': kind, 'metadata': meta, 'source': src.splitlines(keepends=True)}
@@ -75,8 +85,7 @@ def cell(kind, src, **meta):
 nb = {
     'nbformat': 4, 'nbformat_minor': 0,
     'metadata': {
-        'colab': {'name': 'StemTube.ipynb', 'provenance': [], 'toc_visible': True, 'gpuType': 'T4'},
-        'accelerator': 'GPU',
+        'colab': {'name': 'StemTube.ipynb', 'provenance': [], 'toc_visible': True},
         'kernelspec': {'name': 'python3', 'display_name': 'Python 3'},
         'language_info': {'name': 'python'},
     },
