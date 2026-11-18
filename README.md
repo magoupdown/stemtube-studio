@@ -36,8 +36,8 @@ Downloads, conversões e recortes têm prévias individuais com reprodução, pa
 
 O Colab roda em um servidor do Google, então **não é possível ler os cookies do seu navegador automaticamente**. Para vídeos privados, +18, só para membros ou quando o YouTube pedir "confirme que você não é um robô":
 
-1. Exporte uma vez o `cookies.txt` com a extensão *Get cookies.txt LOCALLY* (Chrome/Edge) ou *cookies.txt* (Firefox), logado no youtube.com.
-2. Carregue o arquivo dentro do app (seção *Cookies da sua conta*). Aceita formato Netscape, JSON de extensões ou o cabeçalho `Cookie:`.
+1. Na primeira tela do Studio, em **Cookies do YouTube (opcional)**, abra o link da extensão para Firefox (Android ou computador) ou Chrome (computador). O guia do seu dispositivo explica como exportar apenas o site atual com sua conta aberta no YouTube.
+2. Carregue o arquivo dentro do app (seção *Carregar ou testar cookies*). Aceita formato Netscape, JSON de extensões ou o cabeçalho `Cookie:`.
 3. Com o Drive conectado ele é salvo em `Meu Drive/StemTube/cookies.txt` e **carregado automaticamente** nas próximas sessões. Cookies salvos pelo StemLab ou pelo YT Downloader são migrados sozinhos.
 
 O botão **Testar** verifica se o YouTube reconhece a sessão. Cookies dão acesso à sua conta: nunca compartilhe o arquivo.

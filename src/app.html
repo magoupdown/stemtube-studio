@@ -166,6 +166,13 @@
   #stemtube details.card > summary .chev { margin-left:auto; transition: transform .2s; color:var(--muted); }
   #stemtube details.card[open] > summary .chev { transform: rotate(180deg); }
   #stemtube details.card > .body { padding:0 20px 20px; border-top:1px solid var(--line); padding-top:16px; }
+  #stemtube .cookie-guide .sub { margin:0 0 8px; }
+  #stemtube .cookie-links { column-gap:20px; row-gap:0; margin-bottom:4px; }
+  #stemtube .cookie-links a { display:inline-block; padding:8px 0; color:var(--info); font-weight:600; font-size:14px; text-underline-offset:3px; }
+  #stemtube .cookie-how { border-top:1px solid var(--line); }
+  #stemtube .cookie-how > summary { cursor:pointer; padding:10px 0; font-size:14px; font-weight:600; }
+  #stemtube .cookie-how > summary .badge { margin:2px 0 2px 4px; }
+  #stemtube .cookie-how .steps-help, #stemtube .cookie-how > div { margin:4px 0 12px; }
   #stemtube .steps-help { counter-reset: s; margin:0; padding:0; list-style:none; display:grid; gap:10px; }
   #stemtube .steps-help li { display:flex; gap:12px; font-size:13px; color:var(--muted); align-items:flex-start; }
   #stemtube .steps-help li::before { counter-increment:s; content: counter(s); width:22px; height:22px; border-radius:50%; background:var(--accent-soft); color:var(--a2); font-weight:800; font-size:11.5px; display:grid; place-items:center; flex:none; margin-top:1px; }
@@ -405,6 +412,47 @@
   <main>
     <!-- ===== 1: FONTE ===== -->
     <section data-step="1" class="on">
+      <aside class="card cookie-guide" aria-labelledby="cookiesTitle">
+        <h3 id="cookiesTitle">Cookies do YouTube (opcional)</h3>
+        <p class="sub">Se o YouTube pedir login, use a extensão no navegador em que você acessa sua conta.</p>
+        <div class="row cookie-links">
+          <a href="https://addons.mozilla.org/pt-BR/firefox/addon/cookies-txt/" target="_blank" rel="noopener noreferrer">Instalar no Firefox</a>
+          <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener noreferrer">Instalar no Chrome (computador)</a>
+        </div>
+        <details class="cookie-how">
+          <summary>Como exportar no celular</summary>
+          <ol class="steps-help">
+            <li><span>No <b>Firefox para Android</b>, toque em <b>Instalar no Firefox</b> e adicione a extensão <b>cookies.txt</b>, de Lennon Hill.</span></li>
+            <li><span>Digite <b>youtube.com</b> na barra de endereços do Firefox. Entre na sua conta e mantenha a página aberta no navegador.</span></li>
+            <li><span>Nessa aba, abra o menu <b>⋮</b> do Firefox, toque em <b>Extensões</b> e depois em <b>cookies.txt</b>. Na linha <b>Current Site</b> (site atual), toque em <b>Download</b>.</span></li>
+            <li><span>Volte à aba do Studio e abra <b>Carregar ou testar cookies</b>. Toque em <b>Carregar cookies.txt</b>, escolha o arquivo em <b>Downloads</b> e toque em <b>Testar</b>.</span></li>
+          </ol>
+          <p class="sub"><b>iPhone ou iPad</b> · O Firefox para iOS não oferece essa extensão. Você pode concluir a exportação e o carregamento no computador.</p>
+        </details>
+        <details class="cookie-how">
+          <summary>Como exportar no computador</summary>
+          <ol class="steps-help">
+            <li><span>Instale <b>cookies.txt</b> no Firefox ou <b>Get cookies.txt LOCALLY</b> no Chrome pelo link acima. Abra <b>youtube.com</b> nesse navegador e entre na sua conta.</span></li>
+            <li><span>Com o YouTube aberto, clique na extensão. No Firefox, use <b>Download</b> na linha <b>Current Site</b>. No Chrome, escolha o formato <b>Netscape</b> e use <b>Export</b> para salvar os cookies do site atual.</span></li>
+            <li><span>Volte ao Studio, abra <b>Carregar ou testar cookies</b>, selecione o arquivo em <b>Carregar cookies.txt</b> e clique em <b>Testar</b>.</span></li>
+          </ol>
+        </details>
+        <details class="cookie-how" id="cookiesCard">
+          <summary>Carregar ou testar cookies <span class="badge" id="cookiesBadge">verificando…</span></summary>
+          <div>
+            <p class="sub">O arquivo permite usar sua sessão do YouTube. Guarde-o em particular. Ao carregá-lo, você o envia para esta sessão do Colab. Com o Drive conectado, o Studio também salva uma cópia em <b>Meu Drive/StemTube/cookies.txt</b>.</p>
+            <div class="row">
+              <label class="btn primary" for="cookiesFile">📂 Carregar cookies.txt</label><input type="file" id="cookiesFile" accept=".txt,.json,text/plain,application/json" class="sr">
+              <button class="btn" id="cookiesPasteBtn">📋 Colar conteúdo</button>
+              <button class="btn" id="cookiesTestBtn">🧪 Testar</button>
+              <button class="btn ghost" id="cookiesClearBtn">🗑 Remover</button>
+            </div>
+            <div id="cookiesPasteBox" style="display:none;margin-top:12px"><textarea id="cookiesText" placeholder="Cole aqui o conteúdo do cookies.txt (formato Netscape), o JSON exportado pela extensão ou o cabeçalho Cookie: …"></textarea><div class="row" style="margin-top:8px"><button class="btn sm primary" id="cookiesSaveTextBtn">Salvar</button><button class="btn sm ghost" id="cookiesCancelTextBtn">Cancelar</button></div></div>
+            <div class="note" id="cookiesStatus">Nenhum cookie carregado.</div>
+            <div class="note" id="cookiesDriveNote" style="display:none"></div>
+          </div>
+        </details>
+      </aside>
       <div class="card hero">
         <div class="eq" id="eq"></div>
         <h2>Baixe vídeos e <em>extraia o áudio</em></h2>
@@ -441,35 +489,7 @@
         <div class="feat" style="--c:#22d3ee"><div class="fi">✂️</div><div><b>Recorte, ZIP e Drive</b>Recorte um trecho, baixe os resultados da playlist em ZIP ou guarde cópias no Google Drive.</div></div>
       </div>
 
-      <details class="card" id="cookiesCard">
-        <summary>🔐 Cookies da sua conta <span class="badge" id="cookiesBadge">verificando…</span><span class="chev">▾</span></summary>
-        <div class="body">
-          <div class="grid2">
-            <div>
-              <p class="sub" style="margin-bottom:12px">Só é preciso para vídeos <b>privados</b>, <b>+18</b>, <b>só para membros</b> ou quando o YouTube pedir “confirme que você não é um robô” (comum em servidores). Vídeos públicos funcionam sem isso.</p>
-              <div class="row">
-                <label class="btn primary" for="cookiesFile">📂 Carregar cookies.txt</label><input type="file" id="cookiesFile" accept=".txt,.json,text/plain,application/json" class="sr">
-                <button class="btn" id="cookiesPasteBtn">📋 Colar conteúdo</button>
-                <button class="btn" id="cookiesTestBtn">🧪 Testar</button>
-                <button class="btn ghost" id="cookiesClearBtn">🗑 Remover</button>
-              </div>
-              <div id="cookiesPasteBox" style="display:none;margin-top:12px"><textarea id="cookiesText" placeholder="Cole aqui o conteúdo do cookies.txt (formato Netscape), o JSON exportado pela extensão ou o cabeçalho Cookie: …"></textarea><div class="row" style="margin-top:8px"><button class="btn sm primary" id="cookiesSaveTextBtn">Salvar</button><button class="btn sm ghost" id="cookiesCancelTextBtn">Cancelar</button></div></div>
-              <div class="note" id="cookiesStatus">Nenhum cookie carregado.</div>
-              <div class="note" id="cookiesDriveNote" style="display:none"></div>
-            </div>
-            <div>
-              <h3>Como exportar (leva 1 minuto)</h3>
-              <ol class="steps-help">
-                <li><span>Instale a extensão <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener">Get cookies.txt LOCALLY</a> (Chrome/Edge) ou <a href="https://addons.mozilla.org/firefox/addon/cookies-txt/" target="_blank" rel="noopener">cookies.txt</a> (Firefox).</span></li>
-                <li><span>Abra <b>youtube.com</b> logado na conta que tem acesso aos vídeos.</span></li>
-                <li><span>Clique na extensão → <b>Export</b> (formato Netscape) e salve o arquivo.</span></li>
-                <li><span>Volte aqui e use <b>Carregar cookies.txt</b>. Com o Drive conectado ele fica salvo para as próximas vezes.</span></li>
-              </ol>
-              <div class="note warn">O Colab roda em um servidor do Google e não consegue ler os cookies do seu navegador sozinho, por isso a exportação é feita uma única vez. Cookies dão acesso à sua conta: nunca compartilhe o arquivo.</div>
-            </div>
-          </div>
-        </div>
-      </details>
+
     </section>
 
     <!-- ===== 2: PRÉVIA ===== -->

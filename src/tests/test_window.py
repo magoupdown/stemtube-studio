@@ -88,6 +88,19 @@ def run():
         for width, height in [(1440,900),(768,1024),(390,844),(320,568),(844,390)]:
             app.set_viewport_size({'width':width, 'height':height})
             fit(app)
+            for link in app.locator('.cookie-links a').all():
+                expect(link).to_be_in_viewport()
+                assert link.get_attribute('target') == '_blank'
+        for device in ['celular', 'computador']:
+            guide = app.locator('.cookie-how').filter(has=app.locator('summary', has_text='Como exportar no '+device))
+            guide.locator('summary').click()
+            expect(guide.locator('ol')).to_contain_text('Current Site')
+            fit(app)
+            guide.locator('summary').click()
+        app.locator('#chipCookies').click()
+        expect(app.locator('label[for=cookiesFile]')).to_be_visible()
+        expect(app.locator('#cookiesTestBtn')).to_be_visible()
+        app.locator('#cookiesCard summary').click()
         launch.click()
         assert len(context.pages) == 2
         app.set_viewport_size({'width':360,'height':780})
